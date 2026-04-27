@@ -1,0 +1,46 @@
+:root {
+  /* ================== Light Theme (Default) ================== */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f4f5f7; /* Very light grey */
+  --bg-tertiary: #ffffff;
+  --bg-brand: #0f172a; /* Dark brand */
+  
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-on-brand: #ffffff;
+
+  --border-color: #e2e8f0;
+  
+  --color-primary: #3b82f6; /* Tech Blue */
+  --color-primary-hover: #2563eb;
+  
+  --color-success: #10b981;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+
+  --sidebar-width: 260px;
+  --copilot-width: 380px;
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+:root[data-theme='dark'] {
+  /* ================== Dark Theme ================== */
+  --bg-primary: #0f172a; /* Slate 900 */
+  --bg-secondary: #1e293b; /* Slate 800 */
+  --bg-tertiary: #334155; /* Slate 700 */
+  --bg-brand: #2563eb; 
+  
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-on-brand: #ffffff;
+
+  --border-color: #334155;
+  
+  --color-primary: #3b82f6;
+  --color-primary-hover: #60a5fa;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
