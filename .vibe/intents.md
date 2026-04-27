@@ -17,3 +17,16 @@
   1. **架构适配**：将全局样式表中的 `@import` 迁移为 `@use` 模块化语法，并在 `vite.config.ts` 中配置 `api: 'modern-compiler'`，彻底消除了 Sass `legacy-js-api` 弃用警告，为升级 Sass 2.0 夯实基础。
   2. **交互闭环**：为门户页面 Header 区域实现了真实的交互逻辑。新增“齿轮”设置面板（包含模型选择、自动保存开关）与“头像”用户中心面板（展示专家身份简报与快捷空间入口）。
   3. **体验优化**：引入毛玻璃视觉效果、入场动画及点击外部自动收起菜单的逻辑；同时完善了主题切换的 `localStorage` 持久化记忆功能。
+
+### [2026-04-27] - 阶段二：UI 组件剥离与封装，ConsoleLayout 架构重构
+- **驱动模型**: Claude Sonnet 4.6
+- **涉及文件**: `src/types/index.ts`, `src/components/Sidebar/SidebarNav.vue`, `src/components/Sidebar/FileList.vue`, `src/components/Sidebar/HistoryList.vue`, `src/components/Copilot/ContextBar.vue`, `src/components/Copilot/ChatBubble.vue`, `src/components/Copilot/ActionCard.vue`, `src/components/Copilot/ChatMessages.vue`, `src/components/Copilot/ChatInput.vue`, `src/layouts/ConsoleLayout.vue`
+- **变更逻辑摘要**: 
+  将原 708 行的单体 `ConsoleLayout.vue` 拆分为 8 个职责单一的子组件，并建立 `src/types/index.ts` 统一数据契约。
+  核心决策如下：
+  1. **类型优先**：先定义 `FileItem / Session / Message / Command` 四个接口，强约束各组件间的数据传递，避免隐式 `any` 带来的运行时错误。
+  2. **`@提及菜单` 迁移策略**：原逻辑散布在 ConsoleLayout 的 script 和 template 各处，采用"整体搬迁"方式——将 `mentionState / filteredList / handleInput / handleKeyDown / selectMention` 全部收敛至 `ChatInput.vue` 内部，仅通过 `@send` emit 向上暴露最终消息字符串，实现内部逻辑完全自洽。
+  3. **`HistoryList` 时间分组**：使用 `computed` + 纯函数 `isSameDay` 对 Mock 数据分组，时间参照点硬编码为当前日期，待阶段四替换为 `new Date()` 动态获取即可。
+  4. **`FileList` 多选设计**：复选框的 `opacity: 0` 平时隐藏，hover/checked 时才显现，降低视觉噪音；勾选后通过 `refs-change` emit 将选中的 `FileItem[]` 上传至父组件，与"单击打开文件"的 `file-select` emit 解耦，实现"读取上下文"与"打开文档"两种操作语义分离。
+  5. **`marked` 集成**：`ChatBubble.vue` 仅对 `role === 'ai'` 的消息调用 `marked()` 转换，用户消息保持纯文本渲染，避免用户输入的 Markdown 符号被意外解析。
+  6. **`ConsoleLayout` 精简目标**：重构后 ConsoleLayout 仅保留布局 CSS 和顶层状态管理（折叠状态、messages、files 等），不含任何 UI 细节，为阶段四引入 Pinia 时的状态提升打好基础。
