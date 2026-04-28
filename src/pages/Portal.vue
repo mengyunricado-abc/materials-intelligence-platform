@@ -128,9 +128,9 @@
       </div>
       
       <div class="quick-actions">
-        <button class="chip"><span class="mdi mdi-flask"></span> 撰写实验报告</button>
+        <button class="chip" @click="openTool('tool_unit_converter')"><span class="mdi mdi-calculator"></span> 单位换算</button>
         <button class="chip"><span class="mdi mdi-file-document-outline"></span> 文献摘要分析</button>
-        <button class="chip"><span class="mdi mdi-chart-box-outline"></span> 数据可视化</button>
+        <button class="chip" @click="openTool('tool_chart_analysis')"><span class="mdi mdi-chart-bell-curve-cumulative"></span> 数据分析</button>
       </div>
     </main>
   </div>
@@ -196,6 +196,10 @@ const submit = () => {
     // For local mockup, just go to workspace anyway but maybe logic differs later
     router.push({ name: 'Workspace', query: { q: prompt.value, chatOnly: '1' } })
   }
+}
+
+const openTool = (toolId: string) => {
+  router.push({ name: 'Workspace', query: { toolId } })
 }
 </script>
 

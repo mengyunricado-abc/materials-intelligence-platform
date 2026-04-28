@@ -20,8 +20,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import CodeEditor from '../components/Editor/CodeEditor.vue'
+import { eventBus } from '../utils/eventBus'
 
 // Base document content
 const documentContent = ref(`# 材料智慧平台测试文档
@@ -34,6 +35,20 @@ const documentContent = ref(`# 材料智慧平台测试文档
 
 const isDiffMode = ref(false)
 const originalDocumentSnapshot = ref('')
+
+const handleDiffTrigger = (data: any) => {
+  originalDocumentSnapshot.value = documentContent.value
+  documentContent.value = data.modified
+  isDiffMode.value = true
+}
+
+onMounted(() => {
+  eventBus.on('TRIGGER_DIFF_MODE', handleDiffTrigger)
+})
+
+onUnmounted(() => {
+  eventBus.off('TRIGGER_DIFF_MODE', handleDiffTrigger)
+})
 
 const simulateAiEdit = () => {
   // Save snapshot for old version

@@ -11,35 +11,33 @@
     <!-- ======== 左侧导航栏 ======== -->
     <aside class="sidebar" :class="{ collapsed: isSidebarCollapsed }">
       <SidebarNav
-        :active-tab="activeTab"
+        :active-tab="sidebarActiveTab"
         :is-collapsed="isSidebarCollapsed"
-        @tab-change="activeTab = $event"
+        @tab-change="sidebarActiveTab = $event"
         @collapse="isSidebarCollapsed = !isSidebarCollapsed"
         @go-home="goHome"
         @new-chat="handleNewChat"
       />
       <div class="sidebar-content" v-show="!isSidebarCollapsed">
         <FileList
-          v-if="activeTab === 'files'"
+          v-if="sidebarActiveTab === 'files'"
           :files="files"
           @file-select="handleFileSelect"
           @file-upload="handleFileUpload"
           @refs-change="contextRefs = $event"
         />
         <HistoryList
-          v-else-if="activeTab === 'history'"
+          v-else-if="sidebarActiveTab === 'history'"
           @session-select="handleSessionSelect"
         />
-        <div v-else class="tools-placeholder">
-          <span class="mdi mdi-hammer-wrench"></span>
-          <p>工具区（阶段三实现）</p>
-        </div>
+        <ToolList v-else />
       </div>
     </aside>
 
     <!-- ======== 中间编辑区 ======== -->
     <main class="workspace">
-      <header class="workspace-header">
+      <TabHeader />
+      <header class="workspace-header" v-show="activeTab?.type === 'doc'">
         <div class="doc-info">
           <h2>未命名文档_01.md</h2>
           <span class="status-badge">
@@ -52,7 +50,20 @@
         </div>
       </header>
       <div class="workspace-content">
-        <router-view />
+        <!-- 文档编辑区 (默认常驻) -->
+        <div class="tab-pane" v-show="activeTabId === 'doc_default'">
+          <router-view />
+        </div>
+        
+        <!-- 工具挂载区 (常驻防卸载，天然保活) -->
+        <div 
+          v-for="tool in tabs.filter((t: any) => t.type === 'tool')" 
+          :key="tool.id"
+          class="tab-pane"
+          v-show="activeTabId === tool.id"
+        >
+          <component :is="getToolComponent(tool.id)" />
+        </div>
       </div>
     </main>
 
@@ -94,7 +105,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 // 子组件
 import SidebarNav from '../components/Sidebar/SidebarNav.vue'
@@ -103,16 +114,55 @@ import HistoryList from '../components/Sidebar/HistoryList.vue'
 import ContextBar from '../components/Copilot/ContextBar.vue'
 import ChatMessages from '../components/Copilot/ChatMessages.vue'
 import ChatInput from '../components/Copilot/ChatInput.vue'
+import ToolList from '../components/Sidebar/ToolList.vue'
+import TabHeader from '../components/Workspace/TabHeader.vue'
+
+// hooks & utils
+import { useTabs } from '../composables/useTabs'
+import { computed, defineAsyncComponent, onMounted, watch, markRaw } from 'vue'
+import { toolRegistry } from '../utils/toolsRegistry'
 
 // 类型
 import type { FileItem, Message, Command } from '../types/index'
 
 const router = useRouter()
+const route = useRoute()
+const { tabs, activeTabId, activeTab, openToolTab } = useTabs()
+
+onMounted(() => {
+  if (route.query.toolId) {
+    // 自动打开 URL 传递的工具
+    openToolTab(route.query.toolId as string)
+  }
+})
+
+// 可选：监听路由变化动态打开工具
+watch(() => route.query.toolId, (newToolId) => {
+  if (newToolId) {
+    openToolTab(newToolId as string)
+  }
+})
+
+const getToolComponent = (toolId: string) => {
+  const tool = toolRegistry.find(t => t.id === toolId)
+  return tool && tool.component ? markRaw(tool.component) : null
+}
 
 // ---- 布局状态 ----
 const isSidebarCollapsed = ref(false)
 const isCopilotCollapsed = ref(false)
-const activeTab = ref('files')
+const sidebarActiveTab = ref('files')
+
+// 联动逻辑：主工作区 Tab 切换时，自动拉起对应的左侧边栏分组
+watch(activeTab, (newTab) => {
+  if (newTab) {
+    if (newTab.type === 'tool') {
+      sidebarActiveTab.value = 'tools'
+    } else if (newTab.type === 'doc') {
+      sidebarActiveTab.value = 'files'
+    }
+  }
+}, { immediate: true })
 
 // ---- 文件数据（Mock，阶段五替换为 API） ----
 const files = ref<FileItem[]>([
@@ -215,10 +265,11 @@ const handleSend = (message: string) => {
 /* --- 左侧导航栏 --- */
 .sidebar {
   width: var(--sidebar-width);
-  background-color: var(--bg-tertiary);
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(12px);
   border-right: 1px solid var(--border-color);
   display: flex;
-  transition: width 0.3s ease;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &.collapsed { width: 60px; }
 }
@@ -292,16 +343,19 @@ const handleSend = (message: string) => {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      padding: 0.375rem 0.75rem;
-      border-radius: 6px;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
       border: 1px solid var(--border-color);
       background-color: var(--bg-tertiary);
       color: var(--text-primary);
       font-size: 0.875rem;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 
-      &:hover { background-color: var(--bg-secondary); }
+      &:hover { 
+        background-color: var(--bg-secondary); 
+        transform: translateY(-1px);
+      }
 
       &.primary {
         background-color: var(--color-primary);
@@ -321,14 +375,22 @@ const handleSend = (message: string) => {
   display: flex;
 }
 
+.tab-pane {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 /* --- 右侧 AI 助手 --- */
 .copilot {
   width: var(--copilot-width);
-  background-color: var(--bg-tertiary);
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(12px);
   border-left: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  transition: width 0.3s ease;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &.collapsed { width: 50px; }
 }

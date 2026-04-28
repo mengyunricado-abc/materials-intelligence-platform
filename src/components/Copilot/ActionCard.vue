@@ -13,7 +13,7 @@
       <div class="card-title">{{ title }}</div>
       <div class="card-desc" v-if="description">{{ description }}</div>
     </div>
-    <button class="preview-btn" @click="emit('preview-diff')">
+    <button class="preview-btn" @click="handlePreview">
       <span class="mdi mdi-eye-outline"></span>
       预览修改
     </button>
@@ -21,6 +21,8 @@
 </template>
 
 <script setup lang="ts">
+import { eventBus } from '../../utils/eventBus'
+
 defineProps<{
   title: string
   description?: string
@@ -29,6 +31,22 @@ defineProps<{
 const emit = defineEmits<{
   'preview-diff': []
 }>()
+
+const handlePreview = () => {
+  emit('preview-diff')
+  
+  const simulatedModifiedText = `# 材料智慧平台核心需求说明书 (修订版)
+
+本文档全面阐述了材料智慧平台的设计哲学与子系统全景架构。在顶层设计上，本系统采用深度解耦策略，成功将自动化材料学算法演化引擎与协作式创作流相结合，致力于交付高容错率、全数字孪生追踪的科研编辑闭环。
+
+## 学术优化成果
+通过在文本重构算法中预先加载多层次学术术语感知网络，系统现可自动提取并平滑转译非结构化的实验白话，显著缩减从数据分析到论文定稿的繁杂耗时。
+`
+  
+  eventBus.emit('TRIGGER_DIFF_MODE', {
+    modified: simulatedModifiedText
+  })
+}
 </script>
 
 <style scoped lang="scss">
