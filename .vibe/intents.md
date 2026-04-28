@@ -49,3 +49,4 @@
   [追加：波浪线消除：补齐了 `tsconfig.app.json` 中的 `baseUrl` 与 `paths: {"@/*": ["./src/*"]}` 路径重定向别名，并在 `src` 目录下挂载了 `env.d.ts`，解决了编辑器中 Vue 文件的 TS 类型提示红线。]
   [追加：对标玻尔精致重构：重构了 `variables.scss` 的排版系统与色彩阶梯，为 `ConsoleLayout` 侧栏注入毛玻璃滤镜，重绘了 `ToolList` 卡片的气泡和圆角比例，实现微交互悬浮缓冲。]
   [追加：色彩逻辑热修复：排查并修正了之前在组件库中硬编码写入深色 rgba 色值（导致在 Light Theme 亮色模式下卡片背景色彻底消失、悬浮框隐形）的严重缺陷，现已全量重构为 `var(--card-bg)` 等自适应变量池调取。]
+  [追加：Monaco 资源死锁防御：拦截并化解了 `TextModel got disposed before DiffEditorWidget model got reset` 致命报错。在组件响应 `accept/reject` 卸载渲染节点前，强制调用 `diffEditorRef.value.setModel(null)` 解绑模型，确保垃圾回收闭环。]

@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, shallowRef, watch, onMounted } from 'vue'
+import { ref, computed, shallowRef, watch, onMounted, onBeforeUnmount } from 'vue'
 import { VueMonacoEditor, VueMonacoDiffEditor } from '@guolao/vue-monaco-editor'
 
 const props = defineProps({
@@ -103,12 +103,44 @@ const handleDiffMount = (diffEditor: any) => {
 }
 
 const acceptDiff = () => {
+  if (diffEditorRef.value) {
+    try {
+      diffEditorRef.value.setModel(null)
+    } catch (e) {
+      console.warn('清空 Diff 依赖模型警告:', e)
+    }
+  }
   emit('accept-diff')
 }
 
 const rejectDiff = () => {
+  if (diffEditorRef.value) {
+    try {
+      diffEditorRef.value.setModel(null)
+    } catch (e) {
+      console.warn('清空 Diff 依赖模型警告:', e)
+    }
+  }
   emit('reject-diff')
 }
+
+onBeforeUnmount(() => {
+  if (diffEditorRef.value) {
+    try {
+      diffEditorRef.value.setModel(null)
+      diffEditorRef.value.dispose()
+    } catch (e) {
+      // 静默销毁
+    }
+  }
+  if (editorRef.value) {
+    try {
+      editorRef.value.dispose()
+    } catch (e) {
+      // 静默销毁
+    }
+  }
+})
 </script>
 
 <style scoped lang="scss">
