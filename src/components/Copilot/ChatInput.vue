@@ -92,6 +92,11 @@ const filteredList = computed(() => {
 /** 监听输入事件，检测 @ / / 触发字符 */
 const handleInput = (e: Event) => {
   const target = e.target as HTMLTextAreaElement
+  
+  // 自动扩展高度，去除滚动条
+  target.style.height = 'auto'
+  target.style.height = `${target.scrollHeight}px`
+
   const val = target.value
   const cursor = target.selectionStart ?? 0
 
@@ -179,6 +184,10 @@ const sendMessage = () => {
   emit('send', msg)
   inputValue.value = ''
   mentionState.value.visible = false
+  
+  if (textareaRef.value) {
+    textareaRef.value.style.height = 'auto'
+  }
 }
 </script>
 
@@ -299,6 +308,27 @@ const sendMessage = () => {
     padding: 0.25rem;
     max-height: 150px;
     line-height: 1.5;
+
+    &:placeholder-shown {
+      overflow: hidden;
+    }
+    
+    &:not(:placeholder-shown) {
+      overflow-y: auto;
+    }
+
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
 
     &::placeholder {
       color: var(--text-secondary);

@@ -104,8 +104,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, defineAsyncComponent, onMounted, watch, markRaw } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { storeToRefs } from 'pinia'
+import { useWorkspaceStore } from '../stores/workspace'
 
 // 子组件
 import SidebarNav from '../components/Sidebar/SidebarNav.vue'
@@ -119,15 +121,27 @@ import TabHeader from '../components/Workspace/TabHeader.vue'
 
 // hooks & utils
 import { useTabs } from '../composables/useTabs'
-import { computed, defineAsyncComponent, onMounted, watch, markRaw } from 'vue'
 import { toolRegistry } from '../utils/toolsRegistry'
 
 // 类型
 import type { FileItem, Message, Command } from '../types/index'
 
+/**
+ * @vibe-intent 控制台三栏式主骨架布局，重构为使用 Pinia 状态提升，打通三栏联动。
+ * @vibe-model Gemini 3 Flash
+ * @vibe-ref intents.md#2026-04-28
+ */
 const router = useRouter()
 const route = useRoute()
 const { tabs, activeTabId, activeTab, openToolTab } = useTabs()
+
+// Pinia Store
+const workspaceStore = useWorkspaceStore()
+const { 
+  files, 
+  selectedFiles: contextRefs, 
+  messages 
+} = storeToRefs(workspaceStore)
 
 onMounted(() => {
   if (route.query.toolId) {
@@ -164,22 +178,7 @@ watch(activeTab, (newTab) => {
   }
 }, { immediate: true })
 
-// ---- 文件数据（Mock，阶段五替换为 API） ----
-const files = ref<FileItem[]>([
-  { id: 'f1', name: '参考文献.pdf', type: 'pdf', icon: 'mdi-file-pdf-box', iconClass: 'text-danger' },
-  { id: 'f2', name: '实验数据.xlsx', type: 'xlsx', icon: 'mdi-file-excel-box', iconClass: 'text-success' }
-])
-
-// ---- 右侧对话数据 ----
-const messages = ref<Message[]>([
-  {
-    id: 'm0',
-    role: 'ai',
-    content: '您好！我已读取相关实验数据。请问需要分析数据，还是起草报告的某一部分？'
-  }
-])
 const isThinking = ref(false)
-const contextRefs = ref<FileItem[]>([])
 
 // ---- 指令列表 ----
 const commands: Command[] = [
@@ -193,12 +192,12 @@ const commands: Command[] = [
 const goHome = () => router.push('/')
 
 const handleNewChat = () => {
-  messages.value = [{
+  workspaceStore.messages = [{
     id: 'm0',
     role: 'ai',
     content: '已开启新会话。请问有什么可以帮您？'
   }]
-  contextRefs.value = []
+  workspaceStore.selectedFileIds = []
 }
 
 const handleFileSelect = (file: FileItem) => {
@@ -214,17 +213,17 @@ const handleSessionSelect = (id: string) => {
 }
 
 const removeRef = (id: string) => {
-  contextRefs.value = contextRefs.value.filter(f => f.id !== id)
+  workspaceStore.toggleFileSelection(id)
 }
 
 const handlePreviewDiff = () => {
-  console.log('触发 Diff 预览（阶段三联通）')
+  const modified = workspaceStore.activeDocument + '\n\n## 补充：锂电池失效机理分析\n基于拉曼光谱分析，我们发现固体电解质界面（SEI）膜的非均匀生长是导致容量衰减的主要原因。'
+  workspaceStore.enterDiffMode(modified)
 }
 
 const handleSend = (message: string) => {
   // 追加用户消息
-  messages.value.push({
-    id: `u${Date.now()}`,
+  workspaceStore.addMessage({
     role: 'user',
     content: message
   })
@@ -233,14 +232,12 @@ const handleSend = (message: string) => {
   isThinking.value = true
   setTimeout(() => {
     isThinking.value = false
-    messages.value.push({
-      id: `a${Date.now()}`,
+    workspaceStore.addMessage({
       role: 'ai',
       content: '收到您的指令。我已分析相关内容，以下是生成的修改建议摘要。'
     })
     // 追加操作卡片（模拟 AI 生成了文档修改建议）
-    messages.value.push({
-      id: `c${Date.now()}`,
+    workspaceStore.addMessage({
       role: 'action-card',
       content: '',
       actionCard: {
@@ -251,6 +248,7 @@ const handleSend = (message: string) => {
   }, 1500)
 }
 </script>
+
 
 <style scoped lang="scss">
 /* 布局骨架：三栏 Flex 容器 */

@@ -47,35 +47,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useWorkspaceStore } from '../../stores/workspace'
 import type { FileItem } from '../../types/index'
 
-const props = defineProps<{
-  files: FileItem[]
-}>()
-
+/**
+ * @vibe-intent 文件树组件，已接入 Pinia store，打通勾选多文件加入 AI 上下文的全局联动逻辑。
+ * @vibe-model Gemini 3 Flash
+ * @vibe-ref intents.md#2026-04-28
+ */
 const emit = defineEmits<{
   'file-select': [file: FileItem]
   'file-upload': []
-  'refs-change': [refs: FileItem[]]
 }>()
 
-const selectedIds = ref<string[]>([])
+const workspaceStore = useWorkspaceStore()
+const { files, selectedFileIds: selectedIds } = storeToRefs(workspaceStore)
 
 const toggleSelect = (file: FileItem) => {
-  const idx = selectedIds.value.indexOf(file.id)
-  if (idx === -1) {
-    selectedIds.value.push(file.id)
-  } else {
-    selectedIds.value.splice(idx, 1)
-  }
-  emit('refs-change', props.files.filter(f => selectedIds.value.includes(f.id)))
+  workspaceStore.toggleFileSelection(file.id)
 }
 
 const handleFileClick = (file: FileItem) => {
   emit('file-select', file)
 }
 </script>
+
 
 <style scoped lang="scss">
 .file-list {

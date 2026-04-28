@@ -50,3 +50,24 @@
   [追加：对标玻尔精致重构：重构了 `variables.scss` 的排版系统与色彩阶梯，为 `ConsoleLayout` 侧栏注入毛玻璃滤镜，重绘了 `ToolList` 卡片的气泡和圆角比例，实现微交互悬浮缓冲。]
   [追加：色彩逻辑热修复：排查并修正了之前在组件库中硬编码写入深色 rgba 色值（导致在 Light Theme 亮色模式下卡片背景色彻底消失、悬浮框隐形）的严重缺陷，现已全量重构为 `var(--card-bg)` 等自适应变量池调取。]
   [追加：Monaco 资源死锁防御：拦截并化解了 `TextModel got disposed before DiffEditorWidget model got reset` 致命报错。在组件响应 `accept/reject` 卸载渲染节点前，强制调用 `diffEditorRef.value.setModel(null)` 解绑模型，确保垃圾回收闭环。]
+
+### [2026-04-28] - 阶段四：全局状态管理与部分持久化数据流转
+- **驱动模型**: Gemini 3 Flash
+- **涉及文件**: `src/main.ts`, `src/stores/workspace.ts`, `src/pages/Console.vue`, `src/layouts/ConsoleLayout.vue`, `src/components/Sidebar/FileList.vue`, `src/components/Copilot/ChatInput.vue`
+- **变更逻辑摘要**: 
+  **状态架构重构**：引入 Pinia 状态管理，打通控制台左中右三栏的“数据孤岛”。首先在 `src/main.ts` 中注册全局状态中心，并搭载 `pinia-plugin-persistedstate` 持久化插件，为实现草稿防丢失的部分持久化能力奠定基础。
+  [追加：在 `src/stores/workspace.ts` 中完成全局状态中心架构搭建，整合 `activeDocument`, `selectedFileIds`, `messages`, `isDiffMode` 等状态，按“部分持久化”策略仅缓存文档与对话记录。]
+  [追加：重构中间工作区页面 `src/pages/Console.vue`，移除陈旧的 EventBus 解耦方式，全量接入 `useWorkspaceStore` 驱动 Monaco Editor 的状态变更与 Diff 操作。]
+  [追加：对 `src/layouts/ConsoleLayout.vue` 进行状态提升。将会话消息、文件选择、上下文引用等视图逻辑全部下沉解耦至 Pinia 状态接口，彻底消除了底层透传的冗余代码。]
+  [追加：重构 `src/components/Sidebar/FileList.vue`，将多选引用状态存取剥离至 Store，打通与右侧 AI 上下文状态栏的深度绑定。]
+  [追加：持久化配置热修复：解决 `pinia-plugin-persistedstate` 高版本 API 变更引发的 TS 校验死锁，将旧版配置项 `paths` 更替为最新的 `pick` 参数。]
+  [追加：优化 `src/components/Copilot/ChatInput.vue` 体验：还原 `max-height: 150px` 边界，并利用 `:placeholder-shown` 机制实现在 Placeholder 状态下隐藏原生滚动条，文字溢出时自动恢复滑块。]
+
+
+
+
+
+
+
+
+
