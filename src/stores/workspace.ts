@@ -30,8 +30,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const activeDocument = ref<string>('# 锂电池实验分析报告\n\n请在此处撰写或由 AI 辅助起草报告...')
   const isDiffMode = ref<boolean>(false)
   const originalContent = ref<string>('')
+  const isEditorLocked = ref<boolean>(false)
 
   // --- 计算属性 (Getters) ---
+
+
   const selectedFiles = computed(() => 
     files.value.filter(f => selectedFileIds.value.includes(f.id))
   )
@@ -68,12 +71,17 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     isDiffMode.value = true
   }
 
+  function setEditorLock(locked: boolean) {
+    isEditorLocked.value = locked
+  }
+
   function applyDiff(accepted: boolean) {
     if (!accepted) {
       activeDocument.value = originalContent.value
     }
     isDiffMode.value = false
     originalContent.value = ''
+    isEditorLocked.value = false
   }
 
   function updateDocument(content: string) {
@@ -90,14 +98,17 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     activeDocument,
     isDiffMode,
     originalContent,
+    isEditorLocked,
     currentSession,
     toggleFileSelection,
     selectFileByIds,
     addMessage,
     enterDiffMode,
     applyDiff,
-    updateDocument
+    updateDocument,
+    setEditorLock
   }
+
 }, {
   persist: {
     pick: ['sessions', 'activeSessionId', 'messages', 'activeDocument']

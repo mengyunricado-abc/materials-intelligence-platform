@@ -11,13 +11,13 @@
         <span v-if="tab.icon" class="mdi tab-icon" :class="[tab.icon, tab.iconClass]"></span>
         <span class="tab-title">{{ tab.title }}</span>
         <button 
-          v-if="tab.type === 'tool'" 
           class="close-btn" 
           @click.stop="closeTab(tab.id)"
           title="关闭"
         >
           <span class="mdi mdi-close"></span>
         </button>
+
       </div>
     </div>
   </div>

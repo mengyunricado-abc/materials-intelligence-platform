@@ -7,6 +7,13 @@
     </div>
     
     <div class="editor-container">
+      <!-- 编辑锁遮罩层 (方案 B：视觉拦截) -->
+      <div class="editor-lock-mask" v-if="workspaceStore.isEditorLocked && !isDiffMode">
+        <div class="lock-content">
+          <span class="mdi mdi-lock-outline lock-icon"></span>
+          <p>AI 正在起草修改建议，文档暂时锁定...</p>
+        </div>
+      </div>
       <CodeEditor 
         v-model="documentContent"
         :isDiffMode="isDiffMode"
@@ -97,6 +104,55 @@ const onRejectDiff = () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
+
+.editor-lock-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  animation: fadeIn 0.25s ease-out;
+
+  .lock-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    color: var(--text-primary);
+
+    .lock-icon {
+      font-size: 2.5rem;
+      color: var(--color-primary);
+      animation: pulse 2s infinite;
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 500;
+      opacity: 0.9;
+    }
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.05); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 </style>
 

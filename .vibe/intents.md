@@ -63,10 +63,15 @@
   [追加：持久化配置热修复：解决 `pinia-plugin-persistedstate` 高版本 API 变更引发的 TS 校验死锁，将旧版配置项 `paths` 更替为最新的 `pick` 参数。]
   [追加：优化 `src/components/Copilot/ChatInput.vue` 体验：还原 `max-height: 150px` 边界，并利用 `:placeholder-shown` 机制实现在 Placeholder 状态下隐藏原生滚动条，文字溢出时自动恢复滑块。]
 
-
-
-
-
+### [2026-04-29] - 编辑区竞态并发锁防呆机制
+- **驱动模型**: Gemini 3 Flash
+- **涉及文件**: `src/stores/workspace.ts`, `src/layouts/ConsoleLayout.vue`, `src/pages/Console.vue`
+- **变更逻辑摘要**: 
+  **防御式设计注入**：为了杜绝用户在 AI 异步润色阶段手动更改文档导致“代码冲突式覆盖”，在 `workspace.ts` 状态机中新增 `isEditorLocked` 门阀控制。
+  [追加：在 `ConsoleLayout.vue` 的指令发送通道中设置请求上锁。]
+  [追加：在 `Console.vue` 中设计了视觉拦截层，并在编辑器挂载点嵌入了一道毛玻璃锁定屏障。]
+  [追加：空状态兜底方案 B 落地：在 `ConsoleLayout.vue` 引入了 `empty-state` 玻璃拟态欢迎看板，防止工作区全屏关闭时的纯灰色视觉断层，支持通过按钮唤醒工具箱和建立新文档。]
+  [追加：解禁页签限制：在 `TabHeader.vue` 中移除文档类 Tab 的不可关闭限制，允许用户清空一切视图。]
 
 
 

@@ -50,6 +50,32 @@
         </div>
       </header>
       <div class="workspace-content">
+        <!-- 空状态看板 (方案 B) -->
+        <div class="empty-state" v-if="!activeTabId">
+          <div class="empty-glass-card">
+            <div class="brand-logo">
+              <span class="mdi mdi-atom-variant floating-icon"></span>
+            </div>
+            <h2>材料智慧科研空间</h2>
+            <p>极致 AI 原生计算终端，助您的学术灵感自由穿梭。</p>
+            <div class="quick-actions">
+              <button class="quick-btn primary" @click="createNewDoc">
+                <span class="mdi mdi-file-plus-outline"></span>
+                <span>新建白板文档</span>
+              </button>
+              <button class="quick-btn" @click="toggleSidebarToolbox">
+                <span class="mdi mdi-toolbox-outline"></span>
+                <span>唤醒工具箱</span>
+              </button>
+            </div>
+            <div class="shortcuts-hint">
+              <span>按 <code>@</code> 引入文件引用</span>
+              <span class="separator">•</span>
+              <span>按 <code>/</code> 触发快捷指令</span>
+            </div>
+          </div>
+        </div>
+
         <!-- 文档编辑区 (默认常驻) -->
         <div class="tab-pane" v-show="activeTabId === 'doc_default'">
           <router-view />
@@ -167,6 +193,23 @@ const isSidebarCollapsed = ref(false)
 const isCopilotCollapsed = ref(false)
 const sidebarActiveTab = ref('files')
 
+const createNewDoc = () => {
+  const newId = `doc_${Date.now()}`
+  tabs.value.push({
+    id: newId,
+    title: `未命名文档_${tabs.value.length + 1}.md`,
+    type: 'doc',
+    icon: 'mdi-file-document-outline',
+    iconClass: 'text-blue-400'
+  })
+  activeTabId.value = newId
+}
+
+const toggleSidebarToolbox = () => {
+  isSidebarCollapsed.value = false
+  sidebarActiveTab.value = 'tools'
+}
+
 // 联动逻辑：主工作区 Tab 切换时，自动拉起对应的左侧边栏分组
 watch(activeTab, (newTab) => {
   if (newTab) {
@@ -222,11 +265,15 @@ const handlePreviewDiff = () => {
 }
 
 const handleSend = (message: string) => {
+  // 上锁防并发冲突
+  workspaceStore.setEditorLock(true)
+
   // 追加用户消息
   workspaceStore.addMessage({
     role: 'user',
     content: message
   })
+
 
   // 模拟 AI 思考
   isThinking.value = true
@@ -379,6 +426,138 @@ const handleSend = (message: string) => {
   display: flex;
   flex-direction: column;
 }
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background-color: var(--bg-primary);
+}
+
+.empty-glass-card {
+  max-width: 500px;
+  width: 100%;
+  padding: 3rem 2rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  animation: floatUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  .brand-logo {
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(135deg, var(--color-primary), #8b5cf6);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.25);
+
+    .floating-icon {
+      font-size: 2rem;
+      color: white;
+      animation: rotate 8s linear infinite;
+    }
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    background: linear-gradient(to right, var(--text-primary), var(--text-secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  p {
+    color: var(--text-secondary);
+    font-size: 0.925rem;
+    line-height: 1.6;
+    margin-top: 0;
+    margin-bottom: 2rem;
+  }
+}
+
+.quick-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+
+  .quick-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &.primary {
+      background-color: var(--color-primary);
+      color: white;
+      border: none;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+
+      &:hover {
+        background-color: var(--color-primary-hover);
+        transform: translateY(-1px);
+      }
+    }
+
+    &:not(.primary) {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+
+      &:hover {
+        background-color: var(--bg-tertiary);
+        border-color: var(--border-focus);
+        transform: translateY(-1px);
+      }
+    }
+  }
+}
+
+.shortcuts-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+
+  code {
+    background-color: var(--bg-secondary);
+    padding: 0.1rem 0.3rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    color: var(--color-primary);
+  }
+
+  .separator {
+    opacity: 0.5;
+  }
+}
+
+@keyframes rotate {
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes floatUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 
 /* --- 右侧 AI 助手 --- */
 .copilot {
