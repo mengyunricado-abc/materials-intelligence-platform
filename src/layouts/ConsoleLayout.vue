@@ -16,7 +16,6 @@
         @tab-change="sidebarActiveTab = $event"
         @collapse="isSidebarCollapsed = !isSidebarCollapsed"
         @go-home="goHome"
-        @new-chat="handleNewChat"
       />
       <div class="sidebar-content" v-show="!isSidebarCollapsed">
         <FileList
@@ -26,11 +25,8 @@
           @file-upload="handleFileUpload"
           @refs-change="contextRefs = $event"
         />
-        <HistoryList
-          v-else-if="sidebarActiveTab === 'history'"
-          @session-select="handleSessionSelect"
-        />
         <ToolList v-else />
+
       </div>
     </aside>
 
@@ -100,15 +96,68 @@
           <span class="mdi mdi-robot-outline"></span>
           <span v-show="!isCopilotCollapsed">AI 助手</span>
         </div>
-        <button class="icon-btn" @click="isCopilotCollapsed = !isCopilotCollapsed">
-          <span
-            class="mdi"
-            :class="isCopilotCollapsed ? 'mdi-chevron-left' : 'mdi-chevron-right'"
-          ></span>
+        <div class="header-actions" v-show="!isCopilotCollapsed">
+          <button class="icon-btn" @click="workspaceStore.createSession" title="开启新对话">
+            <span class="mdi mdi-plus"></span>
+          </button>
+          <button class="icon-btn" @click="toggleHistoryDrawer" title="历史记录">
+            <span class="mdi mdi-history"></span>
+          </button>
+          <button class="icon-btn" @click="isCopilotCollapsed = !isCopilotCollapsed">
+            <span
+              class="mdi"
+              :class="isCopilotCollapsed ? 'mdi-chevron-left' : 'mdi-chevron-right'"
+            ></span>
+          </button>
+        </div>
+        <button class="icon-btn" v-show="isCopilotCollapsed" @click="isCopilotCollapsed = !isCopilotCollapsed">
+          <span class="mdi mdi-chevron-left"></span>
         </button>
       </div>
 
+      <!-- 最近会话胶囊标签栏 -->
+      <div class="recent-sessions-bar" v-show="!isCopilotCollapsed">
+        <div 
+          v-for="session in recentSessions" 
+          :key="session.id"
+          class="session-capsule"
+          :class="{ active: session.id === activeSessionId }"
+          @click="workspaceStore.switchSession(session.id)"
+        >
+          <span class="mdi mdi-chat-outline"></span>
+          <span class="session-title">{{ session.title || '新对话' }}</span>
+          <span class="mdi mdi-close-circle close-session-icon" @click.stop="workspaceStore.deleteSession(session.id)"></span>
+        </div>
+      </div>
+
       <div class="chat-container" v-show="!isCopilotCollapsed">
+        <!-- 历史记录侧滑抽屉 -->
+        <div class="history-drawer" :class="{ open: isHistoryDrawerOpen }">
+          <div class="drawer-header">
+            <h3>历史对话</h3>
+            <button class="icon-btn" @click="isHistoryDrawerOpen = false">
+              <span class="mdi mdi-close"></span>
+            </button>
+          </div>
+          <div class="drawer-list">
+            <div 
+              v-for="session in sessions" 
+              :key="session.id"
+              class="drawer-item"
+              :class="{ active: session.id === activeSessionId }"
+              @click="workspaceStore.switchSession(session.id)"
+            >
+              <div class="item-info">
+                <div class="item-title">{{ session.title || '新对话' }}</div>
+                <div class="item-preview">{{ session.preview }}</div>
+              </div>
+              <button class="delete-btn" @click.stop="workspaceStore.deleteSession(session.id)">
+                <span class="mdi mdi-delete-outline"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <ContextBar
           :references="contextRefs"
           @remove-ref="removeRef"
@@ -138,8 +187,8 @@ import { useWorkspaceStore } from '../stores/workspace'
 // 子组件
 import SidebarNav from '../components/Sidebar/SidebarNav.vue'
 import FileList from '../components/Sidebar/FileList.vue'
-import HistoryList from '../components/Sidebar/HistoryList.vue'
 import ContextBar from '../components/Copilot/ContextBar.vue'
+
 import ChatMessages from '../components/Copilot/ChatMessages.vue'
 import ChatInput from '../components/Copilot/ChatInput.vue'
 import ToolList from '../components/Sidebar/ToolList.vue'
@@ -166,8 +215,19 @@ const workspaceStore = useWorkspaceStore()
 const { 
   files, 
   selectedFiles: contextRefs, 
-  messages 
+  messages,
+  sessions,
+  activeSessionId
 } = storeToRefs(workspaceStore)
+
+const isHistoryDrawerOpen = ref(false)
+const toggleHistoryDrawer = () => {
+  isHistoryDrawerOpen.value = !isHistoryDrawerOpen.value
+}
+
+const recentSessions = computed(() => {
+  return sessions.value.slice(0, 3)
+})
 
 onMounted(() => {
   if (route.query.toolId) {
@@ -607,10 +667,180 @@ const handleSend = (message: string) => {
   }
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.recent-sessions-bar {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: rgba(15, 23, 42, 0.2);
+  border-bottom: 1px solid var(--border-color);
+  overflow-x: auto;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+
+  .session-capsule {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+
+    .session-title {
+      max-width: 80px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .close-session-icon {
+      font-size: 0.85rem;
+      opacity: 0;
+      transition: opacity 0.2s;
+      
+      &:hover {
+        color: #ef4444;
+      }
+    }
+
+    &:hover {
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      
+      .close-session-icon { opacity: 0.6; }
+    }
+
+    &.active {
+      background-color: rgba(59, 130, 246, 0.15);
+      color: var(--color-primary);
+      border-color: rgba(59, 130, 246, 0.4);
+      
+      .close-session-icon { opacity: 0.6; }
+    }
+  }
+}
+
 .chat-container {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
+
+.history-drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -100%;
+  width: 100%;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border-left: 1px solid var(--border-color);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &.open {
+    right: 0;
+  }
+
+  .drawer-header {
+    height: 50px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 1rem;
+    border-bottom: 1px solid var(--border-color);
+
+    h3 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+  }
+
+  .drawer-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .drawer-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-radius: 8px;
+    background-color: var(--bg-secondary);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      background-color: var(--bg-tertiary);
+      border-color: var(--border-color);
+      
+      .delete-btn { opacity: 1; }
+    }
+
+    &.active {
+      background-color: rgba(59, 130, 246, 0.08);
+      border-color: var(--color-primary);
+    }
+
+    .item-info {
+      flex: 1;
+      min-width: 0;
+      
+      .item-title {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        margin-bottom: 0.25rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      .item-preview {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+
+    .delete-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 0.25rem;
+      opacity: 0;
+      transition: all 0.2s;
+
+      &:hover {
+        color: #ef4444;
+      }
+    }
+  }
+}
+
 </style>

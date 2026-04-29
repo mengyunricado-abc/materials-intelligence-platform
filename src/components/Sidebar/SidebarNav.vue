@@ -5,12 +5,6 @@
    * @vibe-ref intents.md#2026-04-27
   -->
   <div class="sidebar-nav">
-    <button class="nav-btn primary" title="新对话" @click="emit('new-chat')">
-      <span class="mdi mdi-plus"></span>
-    </button>
-
-    <div class="nav-divider"></div>
-
     <button
       class="nav-btn"
       :class="{ active: activeTab === 'files' }"
@@ -19,14 +13,7 @@
     >
       <span class="mdi mdi-folder-outline"></span>
     </button>
-    <button
-      class="nav-btn"
-      :class="{ active: activeTab === 'history' }"
-      title="历史"
-      @click="emit('tab-change', 'history')"
-    >
-      <span class="mdi mdi-history"></span>
-    </button>
+
     <button
       class="nav-btn"
       :class="{ active: activeTab === 'tools' }"

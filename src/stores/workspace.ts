@@ -63,7 +63,74 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       id: `m_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     }
     messages.value.push(newMsg)
+    
+    // 联动同步到 sessions 里的缓存
+    const currentIdx = sessions.value.findIndex(s => s.id === activeSessionId.value)
+    if (currentIdx > -1) {
+      sessions.value[currentIdx].messages = [...messages.value]
+      // 更新预览文本
+      if (msg.role === 'user') {
+        sessions.value[currentIdx].preview = msg.content.slice(0, 30)
+      }
+    }
   }
+
+  function createSession() {
+    // 1. 保存当前会话
+    const currentIdx = sessions.value.findIndex(s => s.id === activeSessionId.value)
+    if (currentIdx > -1) {
+      sessions.value[currentIdx].messages = [...messages.value]
+    }
+
+    // 2. 创建新会话
+    const newId = `s_${Date.now()}`
+    const newSession: Session = {
+      id: newId,
+      title: '新对话',
+      preview: '开始新的探索...',
+      createdAt: new Date(),
+      messages: []
+    }
+    sessions.value.unshift(newSession)
+    
+    // 3. 激活
+    activeSessionId.value = newId
+    messages.value = [
+      { id: `m_${Date.now()}`, role: 'ai', content: '你好！我是材料智慧平台的科研助理。请随时向我提问。' }
+    ]
+    sessions.value[0].messages = [...messages.value]
+  }
+
+  function switchSession(sessionId: string) {
+    if (sessionId === activeSessionId.value) return
+
+    const currentIdx = sessions.value.findIndex(s => s.id === activeSessionId.value)
+    if (currentIdx > -1) {
+      sessions.value[currentIdx].messages = [...messages.value]
+    }
+
+    const targetSession = sessions.value.find(s => s.id === sessionId)
+    if (targetSession) {
+      activeSessionId.value = sessionId
+      messages.value = targetSession.messages || []
+    }
+  }
+
+  function deleteSession(sessionId: string) {
+    const idx = sessions.value.findIndex(s => s.id === sessionId)
+    if (idx === -1) return
+
+    sessions.value.splice(idx, 1)
+
+    if (activeSessionId.value === sessionId) {
+      if (sessions.value.length > 0) {
+        switchSession(sessions.value[0].id)
+      } else {
+        createSession()
+      }
+    }
+  }
+
 
   function enterDiffMode(modified: string) {
     originalContent.value = activeDocument.value
@@ -103,11 +170,15 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     toggleFileSelection,
     selectFileByIds,
     addMessage,
+    createSession,
+    switchSession,
+    deleteSession,
     enterDiffMode,
     applyDiff,
     updateDocument,
     setEditorLock
   }
+
 
 }, {
   persist: {

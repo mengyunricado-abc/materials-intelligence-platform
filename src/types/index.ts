@@ -19,7 +19,9 @@ export interface Session {
   title: string
   preview: string
   createdAt: Date
+  messages?: Message[]
 }
+
 
 export interface Message {
   id: string
