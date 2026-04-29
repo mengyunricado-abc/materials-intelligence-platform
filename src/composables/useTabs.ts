@@ -62,6 +62,27 @@ export function useTabs() {
     activeTabId.value = newTab.id;
   };
 
+  const openFileTab = (file: any) => {
+    const existingTab = tabs.value.find(t => t.id === file.id);
+
+    if (existingTab) {
+      activeTabId.value = file.id;
+      return;
+    }
+
+    const newTab: TabItem = {
+      id: file.id,
+      title: file.name,
+      type: 'doc',
+      icon: file.icon,
+      iconClass: file.iconClass
+    };
+    
+    tabs.value.push(newTab);
+    activeTabId.value = file.id;
+  };
+
+
   const closeTab = (tabId: string) => {
     const index = tabs.value.findIndex(t => t.id === tabId);
     if (index === -1) return;
@@ -91,7 +112,9 @@ export function useTabs() {
     activeTabId,
     activeTab,
     openToolTab,
+    openFileTab,
     closeTab,
     setActiveTab
   };
+
 }

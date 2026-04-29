@@ -71,8 +71,12 @@
   [追加：在 `ConsoleLayout.vue` 的指令发送通道中设置请求上锁。]
   [追加：在 `Console.vue` 中设计了视觉拦截层，并在编辑器挂载点嵌入了一道毛玻璃锁定屏障。]
   [追加：空状态兜底方案 B 落地：在 `ConsoleLayout.vue` 引入了 `empty-state` 玻璃拟态欢迎看板，防止工作区全屏关闭时的纯灰色视觉断层，支持通过按钮唤醒工具箱和建立新文档。]
-  [追加：解禁页签限制：在 `TabHeader.vue` 中移除文档类 Tab 的不可关闭限制，允许用户清空一切视图。]
-
-
-
+  [追加：解禁页签限制：在 `TabHeader.vue` 中移除文档类 Tab 的不可关闭限制，允许用户清空一切视图。]### [2026-04-29] - 多格式智能解析与数据联动
+- **驱动模型**: Gemini 3 Flash
+- **涉及文件**: `src/composables/useTabs.ts`, `src/components/Workspace/CSVViewer.vue`, `src/layouts/ConsoleLayout.vue`
+- **变更逻辑摘要**: 
+  **多态架构解耦**：实现了非文本工作空间向非工具类文件的多格式映射拓展。
+  [追加：改写 `useTabs.ts` 暴露 `openFileTab` 映射入口。]
+  [追加：开发 `CSVViewer.vue` 用于呈现实验数据源，达成主面板流式渲染闭环。]
+  [追加：热修复了 `useTabs.ts` 闭合大括号缺失导致的 esbuild HMR 报错。]
 

@@ -76,6 +76,12 @@
         <div class="tab-pane" v-show="activeTabId === 'doc_default'">
           <router-view />
         </div>
+
+        <!-- CSV 数据网格预览组件 -->
+        <div class="tab-pane" v-show="isOpenCsvTab">
+          <CSVViewer :fileName="activeTab?.title" />
+        </div>
+
         
         <!-- 工具挂载区 (常驻防卸载，天然保活) -->
         <div 
@@ -193,6 +199,8 @@ import ChatMessages from '../components/Copilot/ChatMessages.vue'
 import ChatInput from '../components/Copilot/ChatInput.vue'
 import ToolList from '../components/Sidebar/ToolList.vue'
 import TabHeader from '../components/Workspace/TabHeader.vue'
+import CSVViewer from '../components/Workspace/CSVViewer.vue'
+
 
 // hooks & utils
 import { useTabs } from '../composables/useTabs'
@@ -208,7 +216,8 @@ import type { FileItem, Message, Command } from '../types/index'
  */
 const router = useRouter()
 const route = useRoute()
-const { tabs, activeTabId, activeTab, openToolTab } = useTabs()
+const { tabs, activeTabId, activeTab, openToolTab, openFileTab } = useTabs()
+
 
 // Pinia Store
 const workspaceStore = useWorkspaceStore()
@@ -228,6 +237,15 @@ const toggleHistoryDrawer = () => {
 const recentSessions = computed(() => {
   return sessions.value.slice(0, 3)
 })
+
+const isOpenCsvTab = computed(() => {
+  return activeTab.value && 
+         activeTab.value.type === 'doc' && 
+         activeTab.value.id !== 'doc_default' &&
+         activeTab.value.title &&
+         activeTab.value.title.toLowerCase().endsWith('.csv')
+})
+
 
 onMounted(() => {
   if (route.query.toolId) {
@@ -304,8 +322,9 @@ const handleNewChat = () => {
 }
 
 const handleFileSelect = (file: FileItem) => {
-  console.log('打开文件：', file.name)
+  openFileTab(file)
 }
+
 
 const handleFileUpload = () => {
   console.log('触发文件上传')
