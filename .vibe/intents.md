@@ -71,7 +71,9 @@
   [追加：在 `ConsoleLayout.vue` 的指令发送通道中设置请求上锁。]
   [追加：在 `Console.vue` 中设计了视觉拦截层，并在编辑器挂载点嵌入了一道毛玻璃锁定屏障。]
   [追加：空状态兜底方案 B 落地：在 `ConsoleLayout.vue` 引入了 `empty-state` 玻璃拟态欢迎看板，防止工作区全屏关闭时的纯灰色视觉断层，支持通过按钮唤醒工具箱和建立新文档。]
-  [追加：解禁页签限制：在 `TabHeader.vue` 中移除文档类 Tab 的不可关闭限制，允许用户清空一切视图。]### [2026-04-29] - 多格式智能解析与数据联动
+  [追加：解禁页签限制：在 `TabHeader.vue` 中移除文档类 Tab 的不可关闭限制，允许用户清空一切视图。]
+  
+  ### [2026-04-29] - 多格式智能解析与数据联动
 - **驱动模型**: Gemini 3 Flash
 - **涉及文件**: `src/composables/useTabs.ts`, `src/components/Workspace/CSVViewer.vue`, `src/layouts/ConsoleLayout.vue`
 - **变更逻辑摘要**: 
@@ -80,3 +82,10 @@
   [追加：开发 `CSVViewer.vue` 用于呈现实验数据源，达成主面板流式渲染闭环。]
   [追加：热修复了 `useTabs.ts` 闭合大括号缺失导致的 esbuild HMR 报错。]
 
+### [2026-04-30] - 科研深度文献阅读 (PDF)
+- **驱动模型**: Gemini 3.1 Pro (High)
+- **涉及文件**: `src/components/Workspace/PDFReader.vue`, `src/layouts/ConsoleLayout.vue`
+- **变更逻辑摘要**: 
+  **纯前端无感预览**：基于纯前端浏览器原生 iframe 引擎，零成本零负担地实现了 PDF 文献阅读。
+  [追加：新增 `PDFReader.vue` 高质感双栏阅读组件，内置“学术文献”专属红标与智能精读 AI 浮动栏。]
+  [追加：在 `ConsoleLayout.vue` 中绑定 `.pdf` 的路由展示开关 `isOpenPdfTab`。]

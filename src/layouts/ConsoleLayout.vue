@@ -82,6 +82,12 @@
           <CSVViewer :fileName="activeTab?.title" />
         </div>
 
+        <!-- PDF 科研文献阅读器组件 -->
+        <div class="tab-pane" v-show="isOpenPdfTab">
+          <PDFReader :fileName="activeTab?.title" />
+        </div>
+
+
         
         <!-- 工具挂载区 (常驻防卸载，天然保活) -->
         <div 
@@ -200,7 +206,7 @@ import ChatInput from '../components/Copilot/ChatInput.vue'
 import ToolList from '../components/Sidebar/ToolList.vue'
 import TabHeader from '../components/Workspace/TabHeader.vue'
 import CSVViewer from '../components/Workspace/CSVViewer.vue'
-
+import PDFReader from '../components/Workspace/PDFReader.vue'
 
 // hooks & utils
 import { useTabs } from '../composables/useTabs'
@@ -246,6 +252,13 @@ const isOpenCsvTab = computed(() => {
          activeTab.value.title.toLowerCase().endsWith('.csv')
 })
 
+const isOpenPdfTab = computed(() => {
+  return activeTab.value && 
+         activeTab.value.type === 'doc' && 
+         activeTab.value.id !== 'doc_default' &&
+         activeTab.value.title &&
+         activeTab.value.title.toLowerCase().endsWith('.pdf')
+})
 
 onMounted(() => {
   if (route.query.toolId) {

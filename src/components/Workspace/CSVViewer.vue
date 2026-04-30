@@ -47,12 +47,13 @@
 import { ref } from 'vue'
 
 
-defineProps<{
+defineProps({
   fileName: {
     type: String,
     default: '实验数据.csv'
   }
-}>()
+})
+
 
 // 模拟科研数据
 const mockRows = ref([
