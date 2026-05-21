@@ -89,3 +89,19 @@
   **纯前端无感预览**：基于纯前端浏览器原生 iframe 引擎，零成本零负担地实现了 PDF 文献阅读。
   [追加：新增 `PDFReader.vue` 高质感双栏阅读组件，内置“学术文献”专属红标与智能精读 AI 浮动栏。]
   [追加：在 `ConsoleLayout.vue` 中绑定 `.pdf` 的路由展示开关 `isOpenPdfTab`。]
+
+### [2026-05-21] - 阶段五：全局 UI/UX 对标玻尔工作站深度改造
+- **驱动模型**: Claude Sonnet 4.6 (Thinking)
+- **涉及文件**: `src/layouts/AppLayout.vue`(NEW), `src/layouts/ConsoleLayout.vue`, `src/pages/Portal.vue`, `src/pages/HistoryPage.vue`(NEW), `src/pages/ToolsGallery.vue`(NEW), `src/components/Sidebar/SidebarNav.vue`, `src/components/Sidebar/HistoryAccordion.vue`(NEW), `src/components/Sidebar/FileList.vue`, `src/components/Sidebar/ToolList.vue`, `src/components/Copilot/ContextBar.vue`, `src/components/Workspace/WordViewer.vue`(NEW), `src/composables/useTabs.ts`, `src/utils/toolsRegistry.ts`, `src/stores/workspace.ts`, `src/types/index.ts`, `src/router/index.ts`
+- **变更逻辑摘要**: 
+  本次改造为最大规模的架构重构，涉及五大核心功能点，全面对标玻尔（Bohrium）工作站 UI/UX 规范：
+
+  **1. 侧边栏全局常驻**：新建 `AppLayout.vue` 作为全局壳布局，将 Portal 和 Console 均嵌套其中。侧边栏由 60px 图标轨道（始终可见）+ 260px 展开面板组成，可折叠但不可隐藏。路由重构为 AppLayout 根嵌套结构，新增 `/history` 和 `/tools` 两个独立子路由。
+
+  **2. History 手风琴交互**：新建 `HistoryAccordion.vue`，将历史对话从右侧 Copilot 的 `history-drawer` 迁移至左侧图标导航条。点击图标后在展开面板内手风琴展开历史列表（`max-height: 240px`），超出时底部固定显示"查看全部历史对话"按钮，跳转至 `/history` 独立管理页。在 Portal 页点击任何导航项，先跳转至 `/console?panel=xxx` 再展开对应面板，由 `watch(route.query.panel)` 监听响应。
+
+  **3. Toolbox 树形订阅结构**：`ToolConfig` 新增 `subscribed` 和 `category` 字段；`ToolList.vue` 重构为仅展示 `subscribed=true` 的已订阅工具，底部固定"查看全部工具"入口；新建 `ToolsGallery.vue` 全量工具大厅页，支持按分类过滤、关键词搜索和订阅/取消订阅操作。
+
+  **4. 文件类型白名单收窄**：`FileItem.type` 移除 `pdf` 和 `csv`，仅保留 `docx | doc | xlsx | xls | md`；`useTabs.ts` 新增 `fileType` 字段和 `inferFileType` 辅助函数；`ConsoleLayout.vue` 移除 CSVViewer/PDFReader 渲染分支，新增 WordViewer 和 Excel 占位；安装 `mammoth.js` 并新建 `WordViewer.vue`，支持拖拽/点击上传 `.docx` 文件，调用 mammoth 转换为样式化 HTML 渲染。
+
+  **5. 文件管理 Project/Folder 层级**：`types/index.ts` 新增 `Project`、`Folder`、`ContextRef` 三个接口；`workspace.ts` 的 `files` 状态升级为 `projects[]` 三级树结构，新增 `allFiles` computed（扁平化供 @ 引用搜索），新增 `toggleContextRef/removeContextRef/toggleProject/toggleFolder` 等 actions；`FileList.vue` 全量重构为 Project > Folder > File 三级树形组件，支持项目整体勾选、文件夹折叠展开；`ContextBar.vue` 升级为直接读取 Pinia `contextRefs`，支持项目级引用的金色 chip 展示。

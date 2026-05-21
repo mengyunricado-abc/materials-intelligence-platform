@@ -1,9 +1,10 @@
 <template>
   <!--
-   * @vibe-intent 文件树组件，支持多选复选框（上下文引用）与单击选中（打开文件）。
-   * 多选状态通过 refs-change emit 向上传递，为阶段四的 @ 引用多文件做好接口准备。
-   * @vibe-model Claude Sonnet 4.6
-   * @vibe-ref intents.md#2026-04-27
+   * @vibe-intent 文件树组件，重构为 Project > Folder > File 三级层级结构。
+   * 每级均支持折叠展开；项目/文件可整体勾选加入 AI 上下文引用（ContextRef），
+   * 勾选整个项目时会将该项目下所有文件纳入上下文。
+   * @vibe-model Claude Sonnet 4.6 (Thinking)
+   * @vibe-ref intents.md#2026-05-21
   -->
   <div class="file-list">
     <div class="panel-header">
@@ -14,34 +15,101 @@
     </div>
 
     <div class="file-tree">
-      <div
-        v-for="file in files"
-        :key="file.id"
-        class="file-item"
-        :class="{ selected: selectedIds.includes(file.id) }"
-        @click="handleFileClick(file)"
-      >
-        <!-- 复选框：勾选表示加入 AI 上下文引用，与"打开文件"解耦 -->
-        <input
-          type="checkbox"
-          class="file-checkbox"
-          :checked="selectedIds.includes(file.id)"
-          @change.stop="toggleSelect(file)"
-          @click.stop
-        />
-        <span class="mdi file-icon" :class="[file.icon, file.iconClass]"></span>
-        <span class="file-name">{{ file.name }}</span>
+      <!-- ===== 项目层 ===== -->
+      <div v-for="project in projects" :key="project.id" class="project-node">
+        <!-- 项目头 -->
+        <div
+          class="node-row project-row"
+          :class="{ 'ctx-selected': isProjectInContext(project.id) }"
+        >
+          <input
+            type="checkbox"
+            class="node-checkbox"
+            :checked="isProjectInContext(project.id)"
+            @change.stop="toggleProjectContext(project)"
+            @click.stop
+          />
+          <span
+            class="mdi toggle-icon"
+            :class="project.expanded ? 'mdi-chevron-down' : 'mdi-chevron-right'"
+            @click.stop="workspaceStore.toggleProject(project.id)"
+          ></span>
+          <span class="mdi mdi-folder-outline node-icon project-icon"></span>
+          <span class="node-name project-name">{{ project.name }}</span>
+        </div>
+
+        <!-- 项目内容（文件夹 + 散落文件） -->
+        <div class="project-body" v-show="project.expanded">
+          <!-- ===== 文件夹层 ===== -->
+          <div v-for="folder in project.folders" :key="folder.id" class="folder-node">
+            <!-- 文件夹头 -->
+            <div class="node-row folder-row">
+              <div class="node-indent-1"></div>
+              <span
+                class="mdi toggle-icon"
+                :class="folder.expanded ? 'mdi-chevron-down' : 'mdi-chevron-right'"
+                @click.stop="workspaceStore.toggleFolder(project.id, folder.id)"
+              ></span>
+              <span class="mdi mdi-folder-outline node-icon folder-icon"></span>
+              <span class="node-name">{{ folder.name }}</span>
+            </div>
+
+            <!-- ===== 文件层（在文件夹内） ===== -->
+            <div class="folder-body" v-show="folder.expanded">
+              <div
+                v-for="file in folder.files"
+                :key="file.id"
+                class="node-row file-row"
+                :class="{ 'ctx-selected': isFileInContext(file.id) }"
+                @click="emit('file-select', file)"
+              >
+                <div class="node-indent-2"></div>
+                <input
+                  type="checkbox"
+                  class="node-checkbox"
+                  :checked="isFileInContext(file.id)"
+                  @change.stop="toggleFileContext(file)"
+                  @click.stop
+                />
+                <span class="mdi node-icon file-icon" :class="[file.icon, file.iconClass]"></span>
+                <span class="node-name file-name">{{ file.name }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== 项目散落文件 ===== -->
+          <div
+            v-for="file in project.files"
+            :key="file.id"
+            class="node-row file-row"
+            :class="{ 'ctx-selected': isFileInContext(file.id) }"
+            @click="emit('file-select', file)"
+          >
+            <div class="node-indent-1"></div>
+            <input
+              type="checkbox"
+              class="node-checkbox"
+              :checked="isFileInContext(file.id)"
+              @change.stop="toggleFileContext(file)"
+              @click.stop
+            />
+            <span class="mdi node-icon file-icon" :class="[file.icon, file.iconClass]"></span>
+            <span class="node-name file-name">{{ file.name }}</span>
+          </div>
+        </div>
       </div>
 
-      <div class="upload-hint" v-if="files.length === 0">
+      <!-- 空状态 -->
+      <div class="empty-hint" v-if="projects.length === 0">
         <span class="mdi mdi-inbox-outline"></span>
-        <span>暂无文件，点击上方上传</span>
+        <span>暂无项目，点击上方上传文件</span>
       </div>
     </div>
 
-    <div class="file-footer" v-if="selectedIds.length > 0">
-      <span class="mdi mdi-check-circle-outline"></span>
-      已选 {{ selectedIds.length }} 个文件加入 AI 上下文
+    <!-- 底部：已选上下文提示 -->
+    <div class="file-footer" v-if="contextRefs.length > 0">
+      <span class="mdi mdi-brain"></span>
+      已挂载 {{ contextRefs.length }} 项 AI 上下文
     </div>
   </div>
 </template>
@@ -49,30 +117,46 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { useWorkspaceStore } from '../../stores/workspace'
-import type { FileItem } from '../../types/index'
+import type { FileItem, Project, ContextRef } from '../../types/index'
 
-/**
- * @vibe-intent 文件树组件，已接入 Pinia store，打通勾选多文件加入 AI 上下文的全局联动逻辑。
- * @vibe-model Gemini 3 Flash
- * @vibe-ref intents.md#2026-04-28
- */
 const emit = defineEmits<{
   'file-select': [file: FileItem]
   'file-upload': []
 }>()
 
 const workspaceStore = useWorkspaceStore()
-const { files, selectedFileIds: selectedIds } = storeToRefs(workspaceStore)
+const { projects, contextRefs } = storeToRefs(workspaceStore)
 
-const toggleSelect = (file: FileItem) => {
-  workspaceStore.toggleFileSelection(file.id)
+/** 判断某文件是否在上下文中 */
+const isFileInContext = (fileId: string) =>
+  contextRefs.value.some(r => r.type === 'file' && r.id === fileId)
+
+/** 判断某项目是否在上下文中 */
+const isProjectInContext = (projectId: string) =>
+  contextRefs.value.some(r => r.type === 'project' && r.id === projectId)
+
+/** 勾选/取消整个项目 */
+const toggleProjectContext = (project: Project) => {
+  const ref_: ContextRef = {
+    type: 'project',
+    id: project.id,
+    name: project.name,
+    icon: 'mdi-folder-multiple-outline'
+  }
+  workspaceStore.toggleContextRef(ref_)
 }
 
-const handleFileClick = (file: FileItem) => {
-  emit('file-select', file)
+/** 勾选/取消单个文件 */
+const toggleFileContext = (file: FileItem) => {
+  const ref_: ContextRef = {
+    type: 'file',
+    id: file.id,
+    name: file.name,
+    icon: file.icon
+  }
+  workspaceStore.toggleContextRef(ref_)
 }
 </script>
-
 
 <style scoped lang="scss">
 .file-list {
@@ -86,15 +170,17 @@ const handleFileClick = (file: FileItem) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 
   h3 {
     margin: 0;
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 }
 
@@ -115,74 +201,102 @@ const handleFileClick = (file: FileItem) => {
   }
 }
 
+/* ---- 文件树 ---- */
 .file-tree {
   flex: 1;
   overflow-y: auto;
-  padding: 0.5rem;
+  padding: 0.5rem 0.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
 }
 
-.file-item {
+/* ---- 通用节点行 ---- */
+.node-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.45rem 0.5rem;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: 0.82rem;
   color: var(--text-secondary);
-  transition: background 0.2s;
+  transition: background-color 0.15s;
   user-select: none;
 
   &:hover {
     background-color: var(--bg-secondary);
     color: var(--text-primary);
 
-    .file-checkbox {
-      opacity: 1;
-    }
+    .node-checkbox { opacity: 1; }
   }
 
-  &.selected {
-    background-color: rgba(59, 130, 246, 0.08);
+  &.ctx-selected {
+    background-color: rgba(59, 130, 246, 0.07);
     color: var(--text-primary);
 
-    .file-checkbox {
-      opacity: 1;
-    }
+    .node-checkbox { opacity: 1; }
   }
 }
 
-.file-checkbox {
-  opacity: 0;
-  width: 14px;
-  height: 14px;
+/* 缩进占位 */
+.node-indent-1 { min-width: 12px; }
+.node-indent-2 { min-width: 24px; }
+
+/* ---- 图标 ---- */
+.toggle-icon {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  flex-shrink: 0;
   cursor: pointer;
-  accent-color: var(--color-primary);
-  flex-shrink: 0;
-  transition: opacity 0.15s;
-
-  &:checked {
-    opacity: 1;
-  }
+  width: 16px;
+  text-align: center;
+  transition: transform 0.2s;
 }
 
-.file-icon {
-  font-size: 1rem;
+.node-icon {
+  font-size: 0.95rem;
   flex-shrink: 0;
-
-  &.text-danger { color: var(--color-danger); }
-  &.text-success { color: var(--color-success); }
-  &.text-warning { color: var(--color-warning, #f59e0b); }
 }
 
-.file-name {
+.project-icon { color: #f59e0b; }
+.folder-icon { color: #94a3b8; }
+
+/* 文件图标颜色通过 :class 继承 iconClass */
+:deep(.text-success) { color: var(--color-success); }
+:deep(.text-primary) { color: var(--color-primary); }
+:deep(.text-danger) { color: var(--color-danger); }
+:deep(.text-warning) { color: var(--color-warning); }
+
+/* ---- 节点名 ---- */
+.node-name {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.upload-hint {
+.project-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.file-name { font-size: 0.8rem; }
+
+/* ---- 复选框 ---- */
+.node-checkbox {
+  opacity: 0;
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+
+  &:checked { opacity: 1; }
+}
+
+/* ---- 空状态 ---- */
+.empty-hint {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -196,6 +310,7 @@ const handleFileClick = (file: FileItem) => {
   .mdi { font-size: 2rem; }
 }
 
+/* ---- 底部上下文提示 ---- */
 .file-footer {
   padding: 0.5rem 1rem;
   font-size: 0.75rem;

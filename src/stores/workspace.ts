@@ -1,60 +1,134 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { FileItem, Session, Message } from '../types/index'
+import type { FileItem, Project, Folder, Session, Message, ContextRef } from '../types/index'
 
 /**
- * @vibe-intent 控制台工作空间核心状态管理 Store，打通左中右三栏交互并实现局部数据持久化。
- * @vibe-model Gemini 3 Flash
- * @vibe-ref intents.md#2026-04-28
+ * @vibe-intent 控制台工作空间核心状态管理 Store，阶段五升级：
+ * 1. 文件体系升级为 Project > Folder > File 三级结构；
+ * 2. 移除 pdf/csv，白名单收窄至 word/xlsx/md；
+ * 3. 上下文引用从 FileItem[] 升级为 ContextRef[]，支持整个项目引用。
+ * @vibe-model Claude Sonnet 4.6 (Thinking)
+ * @vibe-ref intents.md#2026-05-21
  */
 export const useWorkspaceStore = defineStore('workspace', () => {
   // --- 状态 (State) ---
-  // 1. 文件与上下文 (不需要持久化)
-  const files = ref<FileItem[]>([
-    { id: '1', name: '实验数据_锂电池_2026.csv', type: 'csv', icon: 'mdi-file-table', iconClass: 'text-success' },
-    { id: '2', name: '材料微观结构分析.pdf', type: 'pdf', icon: 'mdi-file-pdf-box', iconClass: 'text-danger' },
-    { id: '3', name: '文献综述框架.md', type: 'md', icon: 'mdi-file-document', iconClass: 'text-primary' }
-  ])
-  const selectedFileIds = ref<string[]>([])
 
-  // 2. 对话会话与草稿 (需要持久化)
+  // 1. 项目/文件树（三级结构，白名单：word/xlsx/md）
+  const projects = ref<Project[]>([
+    {
+      id: 'proj_1',
+      name: '锂电池材料研究',
+      expanded: true,
+      folders: [
+        {
+          id: 'folder_1',
+          name: '实验数据',
+          projectId: 'proj_1',
+          expanded: true,
+          files: [
+            { id: 'f1', name: '电化学阻抗数据_2026.xlsx', type: 'xlsx', icon: 'mdi-file-excel', iconClass: 'text-success', folderId: 'folder_1', projectId: 'proj_1' },
+            { id: 'f2', name: '循环充放电测试.xlsx', type: 'xlsx', icon: 'mdi-file-excel', iconClass: 'text-success', folderId: 'folder_1', projectId: 'proj_1' },
+          ]
+        },
+        {
+          id: 'folder_2',
+          name: '实验报告',
+          projectId: 'proj_1',
+          expanded: false,
+          files: [
+            { id: 'f3', name: '材料微观结构分析报告.docx', type: 'docx', icon: 'mdi-file-word', iconClass: 'text-primary', folderId: 'folder_2', projectId: 'proj_1' },
+            { id: 'f4', name: '实验总结.md', type: 'md', icon: 'mdi-language-markdown', iconClass: 'text-warning', folderId: 'folder_2', projectId: 'proj_1' },
+          ]
+        }
+      ],
+      files: [
+        { id: 'f5', name: '研究计划.md', type: 'md', icon: 'mdi-language-markdown', iconClass: 'text-warning', projectId: 'proj_1' }
+      ]
+    },
+    {
+      id: 'proj_2',
+      name: '文献综述',
+      expanded: false,
+      folders: [],
+      files: [
+        { id: 'f6', name: '锂电池技术综述框架.md', type: 'md', icon: 'mdi-language-markdown', iconClass: 'text-warning', projectId: 'proj_2' },
+        { id: 'f7', name: '参考文献整理.docx', type: 'docx', icon: 'mdi-file-word', iconClass: 'text-primary', projectId: 'proj_2' },
+      ]
+    }
+  ])
+
+  // 2. 上下文引用（支持项目级 & 文件级）
+  const contextRefs = ref<ContextRef[]>([])
+
+  // 3. 对话会话与草稿
   const sessions = ref<Session[]>([
-    { id: 's1', title: 'AI 在科学计算应用探讨', preview: '探索 AI 赋能科学计算的路径...', createdAt: new Date() }
+    { id: 's1', title: 'AI 在科学计算应用探讨', preview: '探索 AI 赋能科学计算的路径...', createdAt: new Date() },
+    { id: 's2', title: '锂电池失效机理分析', preview: '基于拉曼光谱的 SEI 膜分析...', createdAt: new Date(Date.now() - 3600000) },
+    { id: 's3', title: '材料数据库检索策略', preview: '如何高效查询 ICSD...', createdAt: new Date(Date.now() - 86400000) },
+    { id: 's4', title: '电化学阻抗谱解析', preview: 'Nyquist 图的等效电路拟合...', createdAt: new Date(Date.now() - 172800000) },
+    { id: 's5', name: '实验方案设计', preview: '三电极体系的注意事项...', createdAt: new Date(Date.now() - 259200000) } as any,
   ])
   const activeSessionId = ref<string>('s1')
   const messages = ref<Message[]>([
     { id: 'm1', role: 'ai', content: '你好！我是材料智慧平台的科研助理。你可以通过 `@` 引用当前项目的文件，或使用 `/` 发起快捷指令。' }
   ])
 
-  // 3. 中间编辑器文档与 Diff 状态 (文档需要持久化，Diff 态无需)
+  // 4. 中间编辑器文档与 Diff 状态
   const activeDocument = ref<string>('# 锂电池实验分析报告\n\n请在此处撰写或由 AI 辅助起草报告...')
   const isDiffMode = ref<boolean>(false)
   const originalContent = ref<string>('')
   const isEditorLocked = ref<boolean>(false)
 
-  // --- 计算属性 (Getters) ---
+  // --- 计算属性 ---
 
+  /** 扁平化所有文件（用于 @ 引用菜单搜索） */
+  const allFiles = computed<FileItem[]>(() => {
+    const files: FileItem[] = []
+    projects.value.forEach(proj => {
+      proj.files.forEach(f => files.push(f))
+      proj.folders.forEach(folder => {
+        folder.files.forEach(f => files.push(f))
+      })
+    })
+    return files
+  })
 
-  const selectedFiles = computed(() => 
-    files.value.filter(f => selectedFileIds.value.includes(f.id))
-  )
-
-  const currentSession = computed(() => 
+  const currentSession = computed(() =>
     sessions.value.find(s => s.id === activeSessionId.value)
   )
 
   // --- 行为 (Actions) ---
-  function toggleFileSelection(fileId: string) {
-    const index = selectedFileIds.value.indexOf(fileId)
-    if (index > -1) {
-      selectedFileIds.value.splice(index, 1)
+
+  /** 切换上下文引用（项目或文件） */
+  function toggleContextRef(ref_: ContextRef) {
+    const idx = contextRefs.value.findIndex(r => r.id === ref_.id && r.type === ref_.type)
+    if (idx > -1) {
+      contextRefs.value.splice(idx, 1)
     } else {
-      selectedFileIds.value.push(fileId)
+      contextRefs.value.push(ref_)
     }
   }
 
-  function selectFileByIds(ids: string[]) {
-    selectedFileIds.value = [...ids]
+  function removeContextRef(id: string) {
+    contextRefs.value = contextRefs.value.filter(r => r.id !== id)
+  }
+
+  function clearContextRefs() {
+    contextRefs.value = []
+  }
+
+  /** 展开/折叠项目 */
+  function toggleProject(projectId: string) {
+    const proj = projects.value.find(p => p.id === projectId)
+    if (proj) proj.expanded = !proj.expanded
+  }
+
+  /** 展开/折叠文件夹 */
+  function toggleFolder(projectId: string, folderId: string) {
+    const proj = projects.value.find(p => p.id === projectId)
+    if (!proj) return
+    const folder = proj.folders.find(f => f.id === folderId)
+    if (folder) folder.expanded = !folder.expanded
   }
 
   function addMessage(msg: Omit<Message, 'id'>) {
@@ -63,12 +137,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       id: `m_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     }
     messages.value.push(newMsg)
-    
-    // 联动同步到 sessions 里的缓存
+
     const currentIdx = sessions.value.findIndex(s => s.id === activeSessionId.value)
     if (currentIdx > -1) {
       sessions.value[currentIdx].messages = [...messages.value]
-      // 更新预览文本
       if (msg.role === 'user') {
         sessions.value[currentIdx].preview = msg.content.slice(0, 30)
       }
@@ -76,13 +148,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   function createSession() {
-    // 1. 保存当前会话
     const currentIdx = sessions.value.findIndex(s => s.id === activeSessionId.value)
     if (currentIdx > -1) {
       sessions.value[currentIdx].messages = [...messages.value]
     }
 
-    // 2. 创建新会话
     const newId = `s_${Date.now()}`
     const newSession: Session = {
       id: newId,
@@ -92,8 +162,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       messages: []
     }
     sessions.value.unshift(newSession)
-    
-    // 3. 激活
+
     activeSessionId.value = newId
     messages.value = [
       { id: `m_${Date.now()}`, role: 'ai', content: '你好！我是材料智慧平台的科研助理。请随时向我提问。' }
@@ -131,10 +200,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   }
 
-
   function enterDiffMode(modified: string) {
     originalContent.value = activeDocument.value
-    activeDocument.value = modified 
+    activeDocument.value = modified
     isDiffMode.value = true
   }
 
@@ -156,9 +224,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   return {
-    files,
-    selectedFileIds,
-    selectedFiles,
+    projects,
+    contextRefs,
+    allFiles,
     sessions,
     activeSessionId,
     messages,
@@ -167,8 +235,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     originalContent,
     isEditorLocked,
     currentSession,
-    toggleFileSelection,
-    selectFileByIds,
+    toggleContextRef,
+    removeContextRef,
+    clearContextRefs,
+    toggleProject,
+    toggleFolder,
     addMessage,
     createSession,
     switchSession,
@@ -179,10 +250,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     setEditorLock
   }
 
-
 }, {
   persist: {
     pick: ['sessions', 'activeSessionId', 'messages', 'activeDocument']
   }
 })
-

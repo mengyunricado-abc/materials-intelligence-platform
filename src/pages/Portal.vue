@@ -6,10 +6,7 @@
   -->
   <div class="portal-container">
     <header class="header">
-      <div class="logo">
-        <span class="mdi mdi-flash brand-icon"></span>
-        材料智慧平台
-      </div>
+      <div class="header-title">材料智慧平台</div>
       <div class="actions">
         <button class="icon-btn" @click="toggleTheme" :title="isDark ? '切换至浅色模式' : '切换至深色模式'">
           <span class="mdi" :class="isDark ? 'mdi-white-balance-sunny' : 'mdi-moon-waning-crescent'"></span>
@@ -205,34 +202,27 @@ const openTool = (toolId: string) => {
 
 <style scoped lang="scss">
 .portal-container {
-  min-height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 2rem;
+  padding: 1rem 2rem;
   position: relative;
   z-index: 10;
-  
-  .logo {
-    font-size: 1.3rem;
+
+  .header-title {
+    font-size: 1rem;
     font-weight: 700;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    letter-spacing: -0.05em;
-    
-    .brand-icon {
-      color: var(--color-primary);
-      background: rgba(59, 130, 246, 0.1);
-      padding: 0.25rem;
-      border-radius: 8px;
-    }
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
   }
+
   
   .actions {
     display: flex;
