@@ -1,6 +1,16 @@
+# 🧪 材料智慧平台 (clzh)
 
-# Vue 3 + TypeScript + Vite
+材料智慧平台是一个基于 **Vue 3 + TypeScript + Vite** 构建 of AI 原生科研/材料编辑工作站。
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+## 🌟 核心设计理念
+本系统借鉴了现代化 SaaS 平台与高级 IDE（集成开发环境）的交互逻辑，旨在将复杂的底层 AI 算力与传统文档编辑工作流进行完美融合。
+- **三栏弹性控制台**：高密度、高可视化的资源与编辑面板。
+- **AI 协同 Diff 模式**：通过左右分屏比对让用户对 AI 修改建议一目了然。
+- **上下文感知系统**：支持在对话框中通过 `@` 机制指定并关联多文件输入。
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+## 📂 项目结构导航
+- `.geminirules` - AI 开发者宪法及架构开发守则
+- `Backlog.md` - 项目研发需求与 Sprint 追踪看板
+- `Changelog.md` - 系统版本迭代演进日志
+- `guides/` - 系统顶层设计、网络架构与交互逻辑指南目录
+- `src/` - 系统核心前端源代码目录
