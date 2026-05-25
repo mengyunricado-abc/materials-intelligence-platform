@@ -1,17 +1,25 @@
 <!--
-  @vibe-intent 在 Vue 3 TS 项目中实现 DOM 元素级点选审查与截图反馈面板组件，支持 Escape 擦除高亮及生命周期卸载防泄露。
+  @vibe-intent 全面升级 Vue 3 TS 自进化抽屉组件，移去 Mock 降级，打通真实 FastAPI 后端 API，加入 WebSocket 实时热更新监听与 premium 右下角 Toast 消息弹出。
   @vibe-model Gemini 3.5 Flash (High)
   @vibe-ref intents.md#2026-05-25
 -->
 <script setup lang="ts">
-import { ref, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 
 interface FeedbackItem {
+  id?: number;
   category: string;
   content: string;
   screenshots: string[];
   processed: boolean;
   timestamp: string;
+}
+
+interface ProcessedNotification {
+  type: string;
+  id: number;
+  category: string;
+  content: string;
 }
 
 const isOpen = ref(false);
@@ -22,6 +30,11 @@ const feedbackCategory = ref('ui_style');
 const screenshots = ref<string[]>([]);
 const statusMsg = ref('');
 const statusType = ref<'success' | 'error' | 'loading' | ''>('');
+
+// WS 状态
+let socket: WebSocket | null = null;
+const showToast = ref(false);
+const toastData = ref<ProcessedNotification | null>(null);
 
 // 切换抽屉状态
 const toggleDrawer = () => {
@@ -58,7 +71,7 @@ const stopInspecting = () => {
 const handleMouseOver = (e: MouseEvent) => {
   if (!isInspecting.value) return;
   const target = e.target as HTMLElement;
-  if (target.closest('.feedback-drawer')) return; // 避让反馈面板本身
+  if (target.closest('.feedback-drawer')) return;
   
   e.preventDefault();
   e.stopPropagation();
@@ -96,13 +109,12 @@ const handleKeyDown = (e: KeyboardEvent) => {
   }
 };
 
-// 计算唯一 CSS 选择器路径（强类型且过滤动态框架特征）
+// 计算唯一 CSS 选择器路径
 const getUniqueSelector = (el: HTMLElement | null): string => {
   if (!el || el.nodeType !== Node.ELEMENT_NODE) return '';
   if (el.id) return `#${el.id}`;
   
   const tagName = el.tagName.toLowerCase();
-  // 过滤掉 Vue/Vite 或 UI 框架临时产生的动态交互 Class
   const classes = Array.from(el.classList)
     .filter(c => c && c !== 'agent-inspect-hover' && !c.startsWith('inspect-') && !c.startsWith('v-'))
     .join('.');
@@ -155,7 +167,7 @@ const deleteScreenshot = (index: number) => {
   screenshots.value.splice(index, 1);
 };
 
-// 提交反馈到自进化网关
+// 提交反馈至真实后端接口
 const submitFeedback = async () => {
   if (!feedbackContent.value.trim() && screenshots.value.length === 0) {
     alert('请输入修改建议或粘贴截图！');
@@ -167,7 +179,7 @@ const submitFeedback = async () => {
     finalContent = `[Target Element: ${targetSelector.value}]\n${finalContent}`;
   }
   
-  statusMsg.value = '正在提交反馈至 Code Agent...';
+  statusMsg.value = '正在提交反馈至真实 API 后端...';
   statusType.value = 'loading';
   
   const feedbackItem: FeedbackItem = {
@@ -186,30 +198,95 @@ const submitFeedback = async () => {
     });
     
     if (response.ok) {
-      statusMsg.value = '反馈提交成功，代码架构自重构已触发！';
+      statusMsg.value = '反馈已成功提交！AI 进化进程已排队接单。';
       statusType.value = 'success';
       feedbackContent.value = '';
       targetSelector.value = '';
       screenshots.value = [];
-      setTimeout(() => { statusMsg.value = ''; statusType.value = ''; }, 3000);
+      setTimeout(() => { statusMsg.value = ''; statusType.value = ''; }, 4000);
     } else {
-      throw new Error('提交失败，后端反馈网关异常');
+      throw new Error(`HTTP Error ${response.status}`);
     }
   } catch (err: any) {
-    statusMsg.value = `网络异常: ${err.message}`;
+    statusMsg.value = `真实接口提交失败: ${err.message}`;
     statusType.value = 'error';
   }
 };
 
-// 卸载组件时自动清除全局事件监听，彻底避免内存泄漏
+// WebSocket 实时自进化部署感知连接
+const initWebSocket = () => {
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  // 通过 Vite 代理后，可直连同源下的 WebSockets 接口
+  const wsUrl = `${wsProtocol}//${window.location.host}/ws/notifications`;
+  
+  console.log(`[WebSocket] Connecting to: ${wsUrl}`);
+  try {
+    socket = new WebSocket(wsUrl);
+    
+    socket.onopen = () => {
+      console.log("[WebSocket] Connection to real API gateway established.");
+    };
+    
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'feedback_processed') {
+          console.log("[WebSocket] Agent build hot-deploy notification received:", data);
+          triggerToast(data);
+        }
+      } catch (err) {
+        console.error("[WebSocket] Parse error:", err);
+      }
+    };
+    
+    socket.onclose = () => {
+      console.log("[WebSocket] Connection lost. Reconnecting in 5s...");
+      setTimeout(() => initWebSocket(), 5000);
+    };
+  } catch (err) {
+    console.error("[WebSocket] Connection failed:", err);
+  }
+};
+
+// 触发自进化吐司通知
+const triggerToast = (data: ProcessedNotification) => {
+  toastData.value = data;
+  showToast.value = true;
+  
+  // 10 秒后自动淡出
+  setTimeout(() => {
+    showToast.value = false;
+  }, 10000);
+};
+
+const closeToast = () => {
+  showToast.value = false;
+};
+
+const getCategoryName = (cat: string) => {
+  const names: Record<string, string> = {
+    'ui_style': '🎨 界面样式',
+    'data_rule': '📊 数据规则',
+    'api_logic': '⚙️ 后端逻辑'
+  };
+  return names[cat] || '💡 改进建议';
+};
+
+onMounted(() => {
+  initWebSocket();
+});
+
 onBeforeUnmount(() => {
   stopInspecting();
+  if (socket) {
+    socket.close();
+  }
 });
 </script>
 
 <template>
   <div class="feedback-container">
-    <!-- 右上角精致磨砂悬浮球 -->
+    <!-- 右上角精致悬浮球 -->
     <button @click="toggleDrawer" class="btn-agent-trigger">
       🤖 Agent 改进
     </button>
@@ -275,6 +352,21 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
+
+    <!-- 自进化部署成功 Premium Toast 卡片（仿玻璃态通知） -->
+    <transition name="toast-fade">
+      <div v-if="showToast && toastData" class="feedback-toast">
+        <div class="toast-header">
+          <span class="toast-icon">🚀</span>
+          <strong class="toast-title">架构自进化更新完成</strong>
+          <span @click="closeToast" class="toast-close">&times;</span>
+        </div>
+        <div class="toast-body">
+          <div>反馈需求 <strong>#{{ toastData.id }}</strong> [{{ getCategoryName(toastData.category) }}] 已由 Agent 自动重构并成功发布！</div>
+          <div class="toast-content">{{ toastData.content.replace(/\[Target Element:.*?\]\n?/, '') }}</div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -443,4 +535,81 @@ onBeforeUnmount(() => {
 .status-box.success { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); color: #4ade80; }
 .status-box.error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171; }
 .status-box.loading { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); color: #94a3b8; }
+
+/* Premium Toast Styling */
+.feedback-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 320px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(6, 182, 212, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 15px rgba(6, 182, 212, 0.2);
+  color: #f1f5f9;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+}
+.toast-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(6, 182, 212, 0.08);
+}
+.toast-icon {
+  font-size: 16px;
+}
+.toast-title {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #06b6d4;
+}
+.toast-close {
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.toast-close:hover {
+  color: #f1f5f9;
+}
+.toast-body {
+  padding: 12px 14px;
+  font-size: 0.775rem;
+  line-height: 1.4;
+  color: #cbd5e1;
+}
+.toast-content {
+  margin-top: 6px;
+  padding: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  word-break: break-all;
+  max-height: 60px;
+  overflow-y: auto;
+}
+
+/* Vue Transition */
+.toast-fade-enter-active {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.toast-fade-leave-active {
+  transition: all 0.3s ease;
+}
+.toast-fade-enter-from {
+  transform: translateY(30px);
+  opacity: 0;
+}
+.toast-fade-leave-to {
+  transform: translateY(10px);
+  opacity: 0;
+}
 </style>

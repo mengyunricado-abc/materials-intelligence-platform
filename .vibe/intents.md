@@ -108,7 +108,7 @@
 
 ### [2026-05-25] - 纠偏与重构：全局单列手风琴侧边栏与主区知识库布局
 - **驱动模型**: Gemini 3.5 Flash (High)
-- **涉及文件**: `src/router/index.ts`, `src/pages/KnowledgePage.vue`(NEW), `src/layouts/AppLayout.vue`
+- **涉及文件**: `src/router/index.ts`, `src/pages/KnowledgePage.vue`(NEW), `src/layouts/AppLayout.vue`, `backend/main.py`, `guides/20260525-01-decoupling_and_environment_troubleshooting.md`(NEW), `Changelog.md`, `Backlog.md`, `scratch/agent_daemon.py`, `frontend/vite.config.ts`
 - **变更逻辑摘要**:
   为了彻底纠正大模型刻板生成的左右双列侧栏，将侧边栏重构为高内聚、自适应手风琴展开的单列侧边栏，并将“知识库”的层级结构推移至主内容区域展示。
   1. **路由拓扑升级**：在嵌套路由中平铺引入并配置 `/knowledge` 路由。
@@ -117,3 +117,4 @@
   4. **极佳联动与弹开动效**：通过路由 `watch` 机制使侧栏 active 高亮精准跟随；在 60px 折叠态下，点击手风琴图标可自动联动弹开侧栏并展开列表，达成高级极佳的交互闭环。
   [追加：根据 AI 静态审阅报告的意见进行精细化优化：将原生 alert() 阻断体验更替为自研磨砂玻璃 Toast 通知卡片；在 computed 计算属性中移除 activeNode 的 ! 强类型断言，提升类型健壮性与防崩溃能力；在模拟上传成功时动态往 Pinia store 状态树中压入真实的 FileItem 并且联动右侧平铺展示；为面包屑增加点击一键回退当前项目的功能，让知识库交互体验臻于完美。]
   [追加：重构 AI 问答区域设计与协同编辑器深度联动。① 拓扑解耦：新增 /chat 独立问答路由页 ChatPage.vue，Portal 提问携带 q 平滑跳转并自动触发流式 AI 响应。默认呈现学术搜索（中对话、右文献）布局，中部的问答宽度保留，右侧底部挂载多篇文件对话与加入知识库 Dialog。② 布局反转与 Resizable：重构 KnowledgePage.vue 大屏布局，左中 Main 呈现知识库文件，右侧挂载锁定为「知识库问答」的 AI 问答面板，边缘搭载毛玻璃阻尼 col-resize Resizable 宽度控制手把（300px-600px 范围自适应并在 Pinia 同步）。③ Word 协同编辑器升级：将只读 WordViewer 重构升级为 contenteditable 协同富文本编辑器，内置高级毛玻璃工具栏与全局 __insertWordEditorText 挂载钩子，打通 Copilot 气泡「一键插回光标处」的物理闭环。④ 侧栏联动：AppLayout.vue 点击新建/AI 对话统一跳往 /chat 并自动重置 Session，实现多端无感顺畅流转。⑤ 编译与类型验证：经 npx tsc 类型检查 100% 编译通过，无任何红线报错。]
+  [追加：后端与环境状态对齐。项目物理前后端拆分完成，登记了物理拓扑结构。针对 Windows/Anaconda 缺失系统环境变量导致 SSL DLL 加载失败的历史报错（ImportError: DLL load failed while importing _ssl），在 backend/main.py 顶部优雅注入了基于 ctypes 强行载入内存锁定依赖 of 黑魔法热加载补丁，彻底排除环境运行阻碍。同时新建了 guides/20260525-01-decoupling_and_environment_troubleshooting.md 架构与排错指南，完美闭环 Sprint 1 的元数据与状态对齐。此外，对 scratch/agent_daemon.py 注入了 Windows UTF-8 stdout 强行配置补丁，彻底排除在 GBK 终端下打印 Emoji 字符导致 UnicodeEncodeError 的致命崩溃，目前自进化 Agent 守护进程也已在后台平稳跑通！针对重构后图标因 Vite fs.allow 安全防卫机制拦截父级 node_modules 静态字体而造成的“outside of Vite serving allow list”不显示报错，在 frontend/vite.config.ts 中升级配置了 server.fs.allow: ['.', '..'] 授权，彻底完美放行，实现全部系统图标的原地满血复活！]

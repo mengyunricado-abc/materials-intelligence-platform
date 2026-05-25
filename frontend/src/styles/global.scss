@@ -72,3 +72,19 @@ body.agent-inspecting-mode * {
   box-shadow: 0 0 12px rgba(255, 230, 0, 0.6) !important;
   transition: outline 0.05s ease, box-shadow 0.05s ease !important;
 }
+
+
+/* ==================== AI 自进化重构 #1 ==================== */
+#app > div.app-layout:nth-of-type(1) > div.app-content > div.portal-container > main.hero > div.omni-input-wrapper.workstation-mode:nth-of-type(1) > div.input-footer > div.mode-toggle > button.mode-btn.workstation.active:nth-of-type(2) {
+  border: 2px solid #00d2ff !important; box-shadow: 0 0 15px #00d2ff !important;
+}
+
+/* ==================== AI 自进化重构 #2 ==================== */
+#app > div.app-layout:nth-of-type(1) > div.app-content > div.portal-container > main.hero > div.omni-input-wrapper.workstation-mode:nth-of-type(1) > div.input-footer > div.mode-toggle > button.mode-btn.workstation.active:nth-of-type(2) {
+  border: 2px solid #00d2ff !important; box-shadow: 0 0 15px #00d2ff !important;
+}
+
+/* ==================== AI 自进化重构 #3 ==================== */
+#app > div.app-layout:nth-of-type(1) > div.app-content > div.chat-page-container > main.chat-main-area > div.chat-messages-scroller > div.message-list > div.msg-bubble-wrap.ai > div.msg-bubble-content:nth-of-type(2) > div.bubble-text.markdown-body:nth-of-type(2) {
+  border: 2px solid #00d2ff !important; box-shadow: 0 0 15px #00d2ff !important;
+}
