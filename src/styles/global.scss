@@ -56,3 +56,19 @@ button {
   align-items: center;
   justify-content: center;
 }
+
+/**
+ * @vibe-intent 追加 DOM 元素审查选取模式下的全局十字准星及悬浮黄闪高亮虚线框样式。
+ * @vibe-model Gemini 3.5 Flash (High)
+ * @vibe-ref intents.md#2026-05-25
+ */
+body.agent-inspecting-mode * {
+  cursor: crosshair !important;
+}
+
+.agent-inspect-hover {
+  outline: 2px dashed #ffe600 !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 12px rgba(255, 230, 0, 0.6) !important;
+  transition: outline 0.05s ease, box-shadow 0.05s ease !important;
+}
