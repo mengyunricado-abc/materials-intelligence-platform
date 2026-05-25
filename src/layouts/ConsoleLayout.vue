@@ -147,7 +147,7 @@ import WordViewer from '../components/Workspace/WordViewer.vue'
 
 import { useTabs } from '../composables/useTabs'
 import { toolRegistry } from '../utils/toolsRegistry'
-import type { Message, Command } from '../types/index'
+import type { Command } from '../types/index'
 
 const router = useRouter()
 const route = useRoute()

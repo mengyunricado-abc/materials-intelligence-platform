@@ -1,101 +1,115 @@
 <template>
   <!--
-   * @vibe-intent 全局壳布局，将侧边栏提升至路由层之外，实现 Portal 和 Console 双页面的
-   * 导航栏全局常驻。侧边栏合并为统一的图标条（60px）+ 展开内容区，可折叠但不可隐藏。
-   * Portal 页下点击导航图标跳转至 /console 并展开对应面板。
-   * @vibe-model Claude Sonnet 4.6 (Thinking)
-   * @vibe-ref intents.md#2026-05-21
+   * @vibe-intent 全局单列侧边栏重构，废除原左右双列分布（60px轨道+260px面板），
+   * 收敛为极简大气的 260px（折叠后为 60px）单列容器。
+   * 整合 Logo、新建对话，并将“已订阅工具”和“历史对话”作为主导航手风琴在原地垂直向下展开。
+   * @vibe-model Gemini 3.5 Flash (High)
+   * @vibe-ref intents.md#2026-05-25
   -->
   <div class="app-layout">
-    <!-- ======== 全局常驻侧边栏 ======== -->
+    <!-- ======== 全局单列常驻侧边栏 ======== -->
     <aside class="global-sidebar" :class="{ collapsed: isSidebarCollapsed }">
-      <!-- 图标导航条（始终可见 60px） -->
-      <div class="icon-rail">
-        <!-- Logo / 首页 -->
-        <div class="rail-logo" @click="handleLogoClick" title="首页">
+      <!-- 1. 头部：Logo 与 标名 -->
+      <div class="sidebar-header" @click="handleLogoClick" title="返回主门户">
+        <div class="logo-wrap">
           <span class="mdi mdi-atom-variant logo-icon"></span>
         </div>
+        <span class="brand-title" v-show="!isSidebarCollapsed">智慧材料终端</span>
+      </div>
 
-        <div class="rail-divider"></div>
-
-        <!-- 新对话 -->
+      <!-- 2. 操作区：新科学对话 -->
+      <div class="sidebar-actions">
         <button
-          class="rail-btn"
-          title="新对话"
+          class="new-chat-btn"
+          :class="{ 'collapsed-btn': isSidebarCollapsed }"
           @click="handleNewChat"
+          title="开启新科学对话"
         >
-          <span class="mdi mdi-plus-circle-outline"></span>
+          <span class="mdi mdi-plus-circle-outline btn-icon"></span>
+          <span class="btn-text" v-show="!isSidebarCollapsed">新建对话</span>
         </button>
+      </div>
 
-        <!-- 历史对话（手风琴触发） -->
-        <button
-          class="rail-btn"
-          :class="{ active: activePanel === 'history' }"
-          title="历史对话"
-          @click="togglePanel('history')"
+      <!-- 3. 主导航菜单列表（垂直） -->
+      <div class="sidebar-nav">
+        <!-- AI 对话 (Workspace) -->
+        <div
+          class="nav-item"
+          :class="{ active: activeMenuId === 'chat' }"
+          @click="navigateTo('chat')"
+          title="AI 对话工作站"
         >
-          <span class="mdi mdi-history"></span>
-        </button>
+          <span class="mdi mdi-forum-outline nav-icon"></span>
+          <span class="nav-label" v-show="!isSidebarCollapsed">AI 对话</span>
+        </div>
 
-        <!-- 文件 -->
-        <button
-          class="rail-btn"
-          :class="{ active: activePanel === 'files' }"
-          title="项目文件"
-          @click="togglePanel('files')"
+        <!-- 科研知识库 (左右分布大屏) -->
+        <div
+          class="nav-item"
+          :class="{ active: activeMenuId === 'knowledge' }"
+          @click="navigateTo('knowledge')"
+          title="文献与实验知识库"
         >
-          <span class="mdi mdi-folder-outline"></span>
-        </button>
+          <span class="mdi mdi-database-outline nav-icon"></span>
+          <span class="nav-label" v-show="!isSidebarCollapsed">科研知识库</span>
+        </div>
 
-        <!-- 工具箱 -->
-        <button
-          class="rail-btn"
-          :class="{ active: activePanel === 'tools' }"
-          title="工具箱"
-          @click="togglePanel('tools')"
+        <!-- 已订阅工具手风琴 -->
+        <div 
+          class="nav-item accordion-item" 
+          :class="{ 
+            expanded: isToolsExpanded && !isSidebarCollapsed,
+            active: activeMenuId === 'tools'
+          }"
         >
-          <span class="mdi mdi-hammer-wrench"></span>
-        </button>
+          <div class="accordion-trigger" @click="toggleToolsAccordion" title="常用科学工具箱">
+            <div class="trigger-left">
+              <span class="mdi mdi-hammer-wrench nav-icon"></span>
+              <span class="nav-label" v-show="!isSidebarCollapsed">已订阅工具</span>
+            </div>
+            <span
+              v-show="!isSidebarCollapsed"
+              class="mdi chevron"
+              :class="isToolsExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+            ></span>
+          </div>
 
-        <div class="rail-spacer"></div>
+          <transition name="accordion">
+            <div class="accordion-body" v-show="isToolsExpanded && !isSidebarCollapsed">
+              <div class="inner-list-wrap">
+                <ToolList />
+              </div>
+            </div>
+          </transition>
+        </div>
 
-        <!-- 折叠/展开 -->
+        <!-- 历史对话手风琴 -->
+        <HistoryAccordion
+          :is-open="isHistoryExpanded"
+          :is-collapsed="isSidebarCollapsed"
+          @toggle="toggleHistoryAccordion"
+          @select="handleHistorySelect"
+        />
+      </div>
+
+      <div class="sidebar-spacer"></div>
+
+      <!-- 4. 底部：展开/收缩控制轨 -->
+      <div class="sidebar-footer">
         <button
-          class="rail-btn"
-          :title="isSidebarCollapsed ? '展开侧栏' : '折叠侧栏'"
+          class="collapse-toggle-btn"
+          :title="isSidebarCollapsed ? '展开导航' : '折叠导航'"
           @click="isSidebarCollapsed = !isSidebarCollapsed"
         >
           <span
             class="mdi"
-            :class="isSidebarCollapsed ? 'mdi-chevron-right' : 'mdi-chevron-left'"
+            :class="isSidebarCollapsed ? 'mdi-chevron-double-right' : 'mdi-chevron-double-left'"
           ></span>
         </button>
       </div>
-
-      <!-- 展开内容面板 -->
-      <div class="panel-area" v-show="!isSidebarCollapsed">
-        <!-- 历史对话手风琴 -->
-        <HistoryAccordion
-          v-show="activePanel === 'history'"
-          :is-open="true"
-          :is-collapsed="false"
-          @toggle="() => {}"
-          @select="handleHistorySelect"
-        />
-
-        <!-- 文件树 -->
-        <FileList
-          v-show="activePanel === 'files'"
-          @file-select="handleFileSelect"
-          @file-upload="handleFileUpload"
-        />
-
-        <!-- 工具箱 -->
-        <ToolList v-show="activePanel === 'tools'" />
-      </div>
     </aside>
 
-    <!-- ======== 页面内容区 ======== -->
+    <!-- ======== 右侧核心页面内容区 ======== -->
     <div class="app-content">
       <router-view />
     </div>
@@ -105,56 +119,31 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useTabs } from '../composables/useTabs'
 import { useWorkspaceStore } from '../stores/workspace'
 import HistoryAccordion from '../components/Sidebar/HistoryAccordion.vue'
-import FileList from '../components/Sidebar/FileList.vue'
 import ToolList from '../components/Sidebar/ToolList.vue'
-import type { FileItem } from '../types/index'
 
 const router = useRouter()
 const route = useRoute()
-const { openFileTab } = useTabs()
 const workspaceStore = useWorkspaceStore()
 
-// ---- 侧边栏状态 ----
+// ---- 侧边栏整体展开收起 ----
 const isSidebarCollapsed = ref(false)
-/** 当前展开的面板：history / files / tools / null */
-const activePanel = ref<'history' | 'files' | 'tools' | null>('history')
 
-/** 点击同一图标再次点击收起，或切换到新面板 */
-const togglePanel = (panel: 'history' | 'files' | 'tools') => {
-  if (isSidebarCollapsed.value) {
-    // 先展开侧边栏
-    isSidebarCollapsed.value = false
-    activePanel.value = panel
-    // 若当前在 Portal 页，跳转到 Console
-    if (route.name === 'Portal') {
-      router.push({ name: 'Console', query: { panel } })
-    }
-    return
-  }
+// ---- 手风琴独立展开状态 ----
+const isToolsExpanded = ref(true)
+const isHistoryExpanded = ref(true)
 
-  if (activePanel.value === panel) {
-    // 同一图标：折叠内容区（不隐藏图标条）
-    isSidebarCollapsed.value = true
-    activePanel.value = null
-  } else {
-    activePanel.value = panel
-    // 若当前在 Portal 页，跳转到 Console
-    if (route.name === 'Portal') {
-      router.push({ name: 'Console', query: { panel } })
-    }
-  }
-}
+// ---- 当前激活高亮的菜单 ID ----
+const activeMenuId = ref<'portal' | 'chat' | 'knowledge' | 'tools' | 'history'>('chat')
 
-/** 若在展开状态下点击 Logo，点击时若在 Console 跳回 Portal */
+/** 处理 Logo 点击，返回主 Portal */
 const handleLogoClick = () => {
   if (route.name === 'Portal') return
   router.push('/')
 }
 
-/** 新对话：若在 Portal 则跳转 Console */
+/** 新建对话 */
 const handleNewChat = () => {
   workspaceStore.createSession()
   if (route.name !== 'Console') {
@@ -162,32 +151,61 @@ const handleNewChat = () => {
   }
 }
 
-/** 历史对话被选中：若在 Portal 则跳转 Console */
-const handleHistorySelect = (id: string) => {
+/** 主导航菜单点击跳转 */
+const navigateTo = (menu: 'chat' | 'knowledge') => {
+  activeMenuId.value = menu
+  if (menu === 'chat') {
+    router.push('/console')
+  } else if (menu === 'knowledge') {
+    router.push('/knowledge')
+  }
+}
+
+/** 工具箱手风琴折叠展开（含折叠状态弹开联动） */
+const toggleToolsAccordion = () => {
+  if (isSidebarCollapsed.value) {
+    isSidebarCollapsed.value = false
+    isToolsExpanded.value = true
+    return
+  }
+  isToolsExpanded.value = !isToolsExpanded.value
+}
+
+/** 历史对话手风琴折叠展开（含折叠状态弹开联动） */
+const toggleHistoryAccordion = () => {
+  if (isSidebarCollapsed.value) {
+    isSidebarCollapsed.value = false
+    isHistoryExpanded.value = true
+    return
+  }
+  isHistoryExpanded.value = !isHistoryExpanded.value
+}
+
+/** 历史列表项选中事件 */
+const handleHistorySelect = () => {
   if (route.name !== 'Console') {
     router.push('/console')
   }
 }
 
-/** 文件选中：在 Console 中打开 tab */
-const handleFileSelect = (file: FileItem) => {
-  if (route.name !== 'Console') {
-    router.push('/console')
-  }
-  openFileTab(file)
-}
-
-const handleFileUpload = () => {
-  console.log('触发文件上传')
-}
-
-// 监听 URL query 参数，支持从 Portal 页跳转后自动展开指定面板
+// ---- 路由联动侦听：自动高亮侧栏对应项 ----
 watch(
-  () => route.query.panel,
-  (panel) => {
-    if (panel && ['history', 'files', 'tools'].includes(panel as string)) {
-      activePanel.value = panel as 'history' | 'files' | 'tools'
-      isSidebarCollapsed.value = false
+  () => route.path,
+  (path) => {
+    if (path.startsWith('/console')) {
+      activeMenuId.value = 'chat'
+    } else if (path.startsWith('/knowledge')) {
+      activeMenuId.value = 'knowledge'
+    } else if (path.startsWith('/tools')) {
+      activeMenuId.value = 'tools'
+      // 跳转至全量工具页时，可默认开启左侧已订阅工具下拉
+      isToolsExpanded.value = true
+    } else if (path.startsWith('/history')) {
+      activeMenuId.value = 'history'
+      // 跳转至全量历史对话页时，可默认开启左侧历史下拉
+      isHistoryExpanded.value = true
+    } else if (path === '/') {
+      activeMenuId.value = 'portal'
     }
   },
   { immediate: true }
@@ -203,105 +221,301 @@ watch(
   background-color: var(--bg-primary);
 }
 
-/* ======== 全局侧边栏 ======== */
+/* ======== 全局单列侧边栏 ======== */
 .global-sidebar {
-  display: flex;
-  flex-shrink: 0;
-  background-color: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  border-right: 1px solid var(--border-color);
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  width: calc(60px + 260px);
-  overflow: hidden;
-
-  &.collapsed {
-    width: 60px;
-  }
-}
-
-/* ---- 图标轨道（始终 60px） ---- */
-.icon-rail {
-  width: 60px;
+  width: 260px;
   min-width: 60px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 0.75rem 0;
+  flex-shrink: 0;
+  background-color: var(--glass-bg, rgba(255, 255, 255, 0.02));
+  backdrop-filter: blur(20px);
   border-right: 1px solid var(--border-color);
+  transition: width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  overflow: hidden;
+  z-index: 100;
+
+  &.collapsed {
+    width: 60px;
+
+    .sidebar-header {
+      justify-content: center;
+      padding: 0;
+    }
+    
+    .sidebar-actions {
+      padding: 0.5rem 0;
+      justify-content: center;
+    }
+
+    .sidebar-nav {
+      padding: 0.5rem 0;
+      align-items: center;
+    }
+
+    .sidebar-footer {
+      justify-content: center;
+    }
+  }
+}
+
+/* 1. 头部 Logo */
+.sidebar-header {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0 1.25rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color);
   background-color: var(--bg-secondary);
-  gap: 0.25rem;
-}
-
-.rail-logo {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border-radius: 10px;
-  margin-bottom: 0.25rem;
-  transition: background-color 0.2s;
-
-  &:hover {
-    background-color: var(--bg-tertiary);
-  }
-
-  .logo-icon {
-    font-size: 1.4rem;
-    background: linear-gradient(135deg, var(--color-primary), #8b5cf6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-}
-
-.rail-divider {
-  width: 28px;
-  height: 1px;
-  background-color: var(--border-color);
-  margin: 0.25rem 0;
-}
-
-.rail-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  cursor: pointer;
+  flex-shrink: 0;
+  user-select: none;
   transition: all 0.2s;
 
   &:hover {
-    color: var(--text-primary);
     background-color: var(--bg-tertiary);
   }
 
-  &.active {
-    color: var(--color-primary);
-    background-color: rgba(59, 130, 246, 0.12);
+  .logo-wrap {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--color-primary), #8b5cf6);
+  }
+
+  .logo-icon {
+    font-size: 1.15rem;
+    color: white;
+  }
+
+  .brand-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    background: linear-gradient(to right, var(--text-primary), #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    white-space: nowrap;
   }
 }
 
-.rail-spacer {
-  flex: 1;
+/* 2. 新对话按钮 */
+.sidebar-actions {
+  padding: 0.75rem 0.75rem 0.5rem;
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+
+  .new-chat-btn {
+    width: 100%;
+    height: 38px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--color-primary), rgba(59, 130, 246, 0.7));
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
+    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35);
+      background: linear-gradient(135deg, var(--color-primary-hover), #8b5cf6);
+    }
+
+    &.collapsed-btn {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border-radius: 50%;
+      
+      .btn-icon {
+        font-size: 1.25rem;
+        margin: 0;
+      }
+    }
+  }
 }
 
-/* ---- 展开内容区 ---- */
-.panel-area {
+/* 3. 垂直导航项 */
+.sidebar-nav {
   flex: 1;
-  width: 260px;
+  overflow-y: auto;
+  padding: 0.5rem;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  background-color: var(--bg-primary);
+  gap: 0.35rem;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    height: 40px;
+    padding: 0 0.75rem;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 500;
+    user-select: none;
+    transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+    .nav-icon {
+      font-size: 1.15rem;
+      width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .nav-label {
+      white-space: nowrap;
+    }
+
+    &:hover {
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+
+    &.active {
+      color: var(--color-primary);
+      background-color: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.15);
+      font-weight: 600;
+
+      .nav-icon { color: var(--color-primary); }
+    }
+  }
 }
 
-/* ======== 页面内容区 ======== */
+/* 手风琴主节点额外调整 */
+.accordion-item {
+  display: flex !important;
+  flex-direction: column !important;
+  height: auto !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  border: none !important;
+  background: transparent !important;
+
+  .accordion-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 40px;
+    padding: 0 0.75rem;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+
+    .trigger-left {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .chevron {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      opacity: 0.7;
+    }
+
+    &:hover {
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+  }
+
+  &.expanded {
+    .accordion-trigger {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+  }
+  
+  &.active {
+    .accordion-trigger {
+      color: var(--color-primary);
+    }
+  }
+}
+
+.accordion-body {
+  width: 100%;
+  overflow: hidden;
+  background-color: rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  margin-top: 0.2rem;
+}
+
+.inner-list-wrap {
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+/* 过渡动画 */
+.accordion-enter-active,
+.accordion-leave-active {
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+  max-height: 300px;
+}
+.accordion-enter-from,
+.accordion-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+.sidebar-spacer {
+  flex: 1;
+}
+
+/* 4. 折叠底部 */
+.sidebar-footer {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 0.75rem;
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+
+  .collapse-toggle-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    transition: all 0.2s;
+
+    &:hover {
+      color: var(--text-primary);
+      background-color: var(--bg-secondary);
+    }
+  }
+}
+
+/* ======== 右侧核心内容区 ======== */
 .app-content {
   flex: 1;
   display: flex;

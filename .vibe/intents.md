@@ -105,3 +105,14 @@
   **4. 文件类型白名单收窄**：`FileItem.type` 移除 `pdf` 和 `csv`，仅保留 `docx | doc | xlsx | xls | md`；`useTabs.ts` 新增 `fileType` 字段和 `inferFileType` 辅助函数；`ConsoleLayout.vue` 移除 CSVViewer/PDFReader 渲染分支，新增 WordViewer 和 Excel 占位；安装 `mammoth.js` 并新建 `WordViewer.vue`，支持拖拽/点击上传 `.docx` 文件，调用 mammoth 转换为样式化 HTML 渲染。
 
   **5. 文件管理 Project/Folder 层级**：`types/index.ts` 新增 `Project`、`Folder`、`ContextRef` 三个接口；`workspace.ts` 的 `files` 状态升级为 `projects[]` 三级树结构，新增 `allFiles` computed（扁平化供 @ 引用搜索），新增 `toggleContextRef/removeContextRef/toggleProject/toggleFolder` 等 actions；`FileList.vue` 全量重构为 Project > Folder > File 三级树形组件，支持项目整体勾选、文件夹折叠展开；`ContextBar.vue` 升级为直接读取 Pinia `contextRefs`，支持项目级引用的金色 chip 展示。
+
+### [2026-05-25] - 纠偏与重构：全局单列手风琴侧边栏与主区知识库布局
+- **驱动模型**: Gemini 3.5 Flash (High)
+- **涉及文件**: `src/router/index.ts`, `src/pages/KnowledgePage.vue`(NEW), `src/layouts/AppLayout.vue`
+- **变更逻辑摘要**:
+  为了彻底纠正大模型刻板生成的左右双列侧栏，将侧边栏重构为高内聚、自适应手风琴展开的单列侧边栏，并将“知识库”的层级结构推移至主内容区域展示。
+  1. **路由拓扑升级**：在嵌套路由中平铺引入并配置 `/knowledge` 路由。
+  2. **知识库左右分布**：新建 `KnowledgePage.vue` 大屏管理面板。左侧只渲染项目与文件夹的树形结构，点击激活后在右侧毛玻璃网格中展示对应文件。右侧提供快捷搜索、类型过滤、一键装载 AI 会话上下文，以及一键“控制台打开”并跨路由自动穿越回 Console 的流畅科研协作动效。
+  3. **侧边栏单列收敛**：全量重写 `AppLayout.vue`，废除 60px 轨道与 260px 面板分离的格局，收敛为一体式折叠侧栏（展开 260px，折叠 60px）。整合 Logo 与长圆角“新建对话”按钮，将 AI 对话、科研知识库、已订阅工具与历史对话纵向排列。
+  4. **极佳联动与弹开动效**：通过路由 `watch` 机制使侧栏 active 高亮精准跟随；在 60px 折叠态下，点击手风琴图标可自动联动弹开侧栏并展开列表，达成高级极佳的交互闭环。
+  [追加：根据 AI 静态审阅报告的意见进行精细化优化：将原生 alert() 阻断体验更替为自研磨砂玻璃 Toast 通知卡片；在 computed 计算属性中移除 activeNode 的 ! 强类型断言，提升类型健壮性与防崩溃能力；在模拟上传成功时动态往 Pinia store 状态树中压入真实的 FileItem 并且联动右侧平铺展示；为面包屑增加点击一键回退当前项目的功能，让知识库交互体验臻于完美。]

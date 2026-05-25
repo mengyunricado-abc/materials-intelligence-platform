@@ -55,7 +55,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useWorkspaceStore } from '../../stores/workspace'
@@ -73,8 +72,6 @@ const emit = defineEmits<{
 const router = useRouter()
 const workspaceStore = useWorkspaceStore()
 const { sessions, activeSessionId } = storeToRefs(workspaceStore)
-const listRef = ref<HTMLElement | null>(null)
-
 const handleSelect = (id: string) => {
   workspaceStore.switchSession(id)
   emit('select', id)

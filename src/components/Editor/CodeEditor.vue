@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, shallowRef, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, shallowRef, onMounted, onBeforeUnmount } from 'vue'
 import { VueMonacoEditor, VueMonacoDiffEditor } from '@guolao/vue-monaco-editor'
 
 const props = defineProps({

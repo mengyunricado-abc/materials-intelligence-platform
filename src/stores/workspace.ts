@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { FileItem, Project, Folder, Session, Message, ContextRef } from '../types/index'
+import type { FileItem, Project, Session, Message, ContextRef } from '../types/index'
 
 /**
  * @vibe-intent 控制台工作空间核心状态管理 Store，阶段五升级：

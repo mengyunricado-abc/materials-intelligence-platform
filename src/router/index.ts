@@ -37,6 +37,11 @@ const routes = [
         path: 'tools',
         name: 'ToolsGallery',
         component: () => import('../pages/ToolsGallery.vue')
+      },
+      {
+        path: 'knowledge',
+        name: 'Knowledge',
+        component: () => import('../pages/KnowledgePage.vue')
       }
     ]
   }
