@@ -78,6 +78,16 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const isDiffMode = ref<boolean>(false)
   const originalContent = ref<string>('')
   const isEditorLocked = ref<boolean>(false)
+  
+  /**
+   * @vibe-intent 问答主战场与知识库布局状态控制
+   * @vibe-model Gemini 3.5 Flash (High)
+   * @vibe-ref intents.md#2026-05-25
+   */
+  const currentMode = ref<'academic-search' | 'file-chat' | 'knowledge-qa'>('academic-search')
+  const layoutType = ref<'center-chat' | 'right-chat'>('center-chat')
+  const rightPanelWidth = ref<number>(380)
+  const selectedFilesForChat = ref<FileItem[]>([])
 
   // --- 计算属性 ---
 
@@ -223,6 +233,38 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     activeDocument.value = content
   }
 
+  /**
+   * @vibe-intent 问答与工作区状态流转 Actions
+   * @vibe-model Gemini 3.5 Flash (High)
+   * @vibe-ref intents.md#2026-05-25
+   */
+  function updateMode(mode: 'academic-search' | 'file-chat' | 'knowledge-qa') {
+    currentMode.value = mode
+    if (mode === 'knowledge-qa') {
+      layoutType.value = 'right-chat'
+    } else {
+      layoutType.value = 'center-chat'
+    }
+  }
+
+  function updateRightPanelWidth(width: number) {
+    rightPanelWidth.value = Math.max(300, Math.min(600, width))
+  }
+
+  function addFileToChat(file: FileItem) {
+    if (!selectedFilesForChat.value.some(f => f.id === file.id)) {
+      selectedFilesForChat.value.push(file)
+    }
+  }
+
+  function removeFileFromChat(fileId: string) {
+    selectedFilesForChat.value = selectedFilesForChat.value.filter(f => f.id !== fileId)
+  }
+
+  function clearChatFiles() {
+    selectedFilesForChat.value = []
+  }
+
   return {
     projects,
     contextRefs,
@@ -235,6 +277,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     originalContent,
     isEditorLocked,
     currentSession,
+    currentMode,
+    layoutType,
+    rightPanelWidth,
+    selectedFilesForChat,
     toggleContextRef,
     removeContextRef,
     clearContextRefs,
@@ -247,11 +293,25 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     enterDiffMode,
     applyDiff,
     updateDocument,
-    setEditorLock
+    setEditorLock,
+    updateMode,
+    updateRightPanelWidth,
+    addFileToChat,
+    removeFileFromChat,
+    clearChatFiles
   }
 
 }, {
   persist: {
-    pick: ['sessions', 'activeSessionId', 'messages', 'activeDocument']
+    pick: [
+      'sessions', 
+      'activeSessionId', 
+      'messages', 
+      'activeDocument', 
+      'rightPanelWidth', 
+      'currentMode', 
+      'layoutType', 
+      'selectedFilesForChat'
+    ]
   }
 })

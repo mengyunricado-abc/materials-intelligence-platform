@@ -185,14 +185,14 @@ const resizeTextarea = () => {
   }
 }
 
+/**
+ * @vibe-intent 首个问题提交后，携带 prompt 跳转至独立学术/文件对话主页
+ * @vibe-model Gemini 3.5 Flash (High)
+ * @vibe-ref intents.md#2026-05-25
+ */
 const submit = () => {
   if (!prompt.value.trim()) return
-  if (isWorkstationMode.value) {
-    router.push({ name: 'Workspace', query: { q: prompt.value } })
-  } else {
-    // For local mockup, just go to workspace anyway but maybe logic differs later
-    router.push({ name: 'Workspace', query: { q: prompt.value, chatOnly: '1' } })
-  }
+  router.push({ name: 'Chat', query: { q: prompt.value } })
 }
 
 const openTool = (toolId: string) => {

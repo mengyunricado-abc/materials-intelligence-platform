@@ -17,6 +17,11 @@ const routes = [
         component: () => import('../pages/Portal.vue')
       },
       {
+        path: 'chat',
+        name: 'Chat',
+        component: () => import('../pages/ChatPage.vue')
+      },
+      {
         path: 'console',
         name: 'Console',
         component: () => import('../layouts/ConsoleLayout.vue'),

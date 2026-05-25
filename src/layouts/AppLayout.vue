@@ -146,8 +146,8 @@ const handleLogoClick = () => {
 /** 新建对话 */
 const handleNewChat = () => {
   workspaceStore.createSession()
-  if (route.name !== 'Console') {
-    router.push('/console')
+  if (route.name !== 'Chat') {
+    router.push('/chat')
   }
 }
 
@@ -155,7 +155,7 @@ const handleNewChat = () => {
 const navigateTo = (menu: 'chat' | 'knowledge') => {
   activeMenuId.value = menu
   if (menu === 'chat') {
-    router.push('/console')
+    router.push('/chat')
   } else if (menu === 'knowledge') {
     router.push('/knowledge')
   }
@@ -183,8 +183,8 @@ const toggleHistoryAccordion = () => {
 
 /** 历史列表项选中事件 */
 const handleHistorySelect = () => {
-  if (route.name !== 'Console') {
-    router.push('/console')
+  if (route.name !== 'Chat') {
+    router.push('/chat')
   }
 }
 
