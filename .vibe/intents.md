@@ -117,3 +117,41 @@
   4. **极佳联动与弹开动效**：通过路由 `watch` 机制使侧栏 active 高亮精准跟随；在 60px 折叠态下，点击手风琴图标可自动联动弹开侧栏并展开列表，达成高级极佳的交互闭环。
   [追加：根据 AI 静态审阅报告的意见进行精细化优化：将原生 alert() 阻断体验更替为自研磨砂玻璃 Toast 通知卡片；在 computed 计算属性中移除 activeNode 的 ! 强类型断言，提升类型健壮性与防崩溃能力；在模拟上传成功时动态往 Pinia store 状态树中压入真实的 FileItem 并且联动右侧平铺展示；为面包屑增加点击一键回退当前项目的功能，让知识库交互体验臻于完美。]
   [追加：重构 AI 问答区域设计与协同编辑器深度联动。① 拓扑解耦：新增 /chat 独立问答路由页 ChatPage.vue，Portal 提问携带 q 平滑跳转并自动触发流式 AI 响应。默认呈现学术搜索（中对话、右文献）布局，中部的问答宽度保留，右侧底部挂载多篇文件对话与加入知识库 Dialog。② 布局反转与 Resizable：重构 KnowledgePage.vue 大屏布局，左中 Main 呈现知识库文件，右侧挂载锁定为「知识库问答」的 AI 问答面板，边缘搭载毛玻璃阻尼 col-resize Resizable 宽度控制手把（300px-600px 范围自适应并在 Pinia 同步）。③ Word 协同编辑器升级：将只读 WordViewer 重构升级为 contenteditable 协同富文本编辑器，内置高级毛玻璃工具栏与全局 __insertWordEditorText 挂载钩子，打通 Copilot 气泡「一键插回光标处」的物理闭环。④ 侧栏联动：AppLayout.vue 点击新建/AI 对话统一跳往 /chat 并自动重置 Session，实现多端无感顺畅流转。⑤ 编译与类型验证：经 npx tsc 类型检查 100% 编译通过，无任何红线报错。]
+
+### [2026-05-28] - 侧边栏 UI 精修与导航逻辑收敛（两大战役共9项）
+- **驱动模型**: Claude Sonnet 4.6 (Thinking)
+- **涉及文件**: `src/layouts/AppLayout.vue`, `src/components/Sidebar/ToolList.vue`, `src/components/Sidebar/HistoryAccordion.vue`, `src/stores/workspace.ts`, `src/pages/ChatPage.vue`, `src/pages/Portal.vue`
+- **变更逻辑摘要**:
+  本次修改源于与用户的深度 /grill-me 需求对齐会话，经逐问确认后执行。核心决策如下：
+
+  **第一战役（UI 样式）**：
+  1. **侧边栏高度修复（T1）**：定位到 `.sidebar-spacer {flex:1}` 与 `.sidebar-nav {flex:1}` 并列导致高度各分一半的根因，删除 sidebar-spacer 元素，让 sidebar-nav 独占全部剩余高度，手风琴内容得以充分展开。
+  2. **手风琴背景透明（T2）**：将 `.accordion-body` 的 `background-color: rgba(0,0,0,0.08)` 改为 `transparent`，消除展开后的深色背景块，回归玻尔侧边栏纯净风格。
+  3. **工具列表高度解锁（T3）**：移除 `.inner-list-wrap` 的 `max-height: 240px` 硬限制，工具列表随内容自然撑开。
+  4. **字体层级规范（T4）**：父级手风琴触发头（已订阅工具/历史对话）统一调整至 `0.88rem + font-weight:600`；子项（工具名称/历史对话标题）调整至 `0.78rem + font-weight:400`，形成清晰视觉层次。
+  5. **工具列表精简（T5）**：将 ToolList.vue 的工具卡片由「图标圆块+名称+描述文字+卡片背景」重构为「图标+名称」的轻量一行式，去除视觉噪音，更符合侧边栏精简导航定位。
+
+  **第二战役（导航逻辑）**：
+  6. **新建对话合并（T6）**：删除独立的「AI 对话」nav-item 和原「新建对话」特殊按钮，合并为单一 nav-item（图标 `mdi-plus-circle-outline` + 换行/新建逻辑等），点击行为改为 `createSession() + router.push('/')`，引导用户回到门户页从零输入，逻辑链：新 session 备用 → 门户页输入 → Portal submit 携带 q 跳转 /chat。
+  7. **工具新标签页隔离（T7）**：ToolList 工具项点击改为 `window.open('/console?tool=${toolId}', '_blank')`，将工具执行环境与知识库 Tab 体系彻底物理隔离，留 TODO 注释备后续路由精确化。
+  8. **单一对话标题视图（T8）**：ChatPage.vue header 将固定文字"学术搜索对话"/"多篇文件对话"改为动态读取 `workspaceStore.currentSession?.title`，实现标题随当前 session 实时变化。
+  9. **标题动态生成预留（T9）**：`workspace.ts` 的 `createSession()` 初始标题改为"新科学对话"；`addMessage()` 中拦截用户第一条消息，通过 `generateChatTitle()` 函数（截取前 10 字 + `...`）自动更新 session 标题，并留 `// TODO: 后续接入 LLM API 动态生成标题摘要` 注释钩子。
+
+  [追加：对标 Bohrium 工作站门户与侧栏的终极学术美学优化：
+  1. 侧边栏底色与字重阶梯：底色由纯白重构为柔和微光的灰蓝色（#ebedf3），并将父级菜单标题字重从 600 下调为更克制中庸的 500 (Medium)，调降高亮选中背景的高对比度噪音。
+  2. 树状层级引导线与去图标静音：手风琴展开的已订阅工具和历史列表左侧引入极细的纵向垂直连接引导线，同时彻底剥离历史列表的前置气泡图标与预览副文本，以极净空的纯字排版实现超凡秩序美。
+  3. 查看全部扁平化：拆碎原来突兀的蓝色虚线大胶囊按钮，重塑为与其上子项高度平齐缩进、字色淡雅、且右侧仅带一个细小 [↗] 外链图标 of 扁平无框子项。
+  4. 已订阅工具头部去噪：移除 ToolList 重复的多余 h3 标题和数量大角标，使子项干净连贯地在原地铺开。
+  5. 最底座追加：在侧栏底部增设 Bohrium 经典的科学家用户卡片、带渐变紫星的“Basic 升级/额度💎 58次”小组件以及“🌐 CN”语言切换帮助图标，极大地夯实了全局工作站的真实感。
+  6. 科学家主门户大重塑：Portal.vue 页面背景升级为微蓝灰冷渐变（linear-gradient）极淡雅微光纹理，顶置高校福利横幅及签到大胶囊；主标题蜕变为超高雅深蓝紫色“科学家，你好”；输入框重绘为大圆角润滑大胶囊卡片（border-radius: 24px，集成闪电、期刊下拉和“深度研究 ON-OFF”交互门阀）；横向部署三联材料高频场景大卡片；下方配以带彩色渐变示意图的常见物理案例（如固/液态电池、能带缺陷模拟），辅以双矢量“换一换”及问题广场，使整个主门户极具顶尖高定级学术软件质感。]
+
+  [追加：主门户与侧栏的二次调优与类型纠偏：
+  1. 门户页降噪：根据用户指示，删除了顶部重复显眼的福利通知横幅，并把主标题文案由“科学家，你好”精调回经典高雅的“您的 AI 科研协作者”，使用户回归纯净科研视野。
+  2. 侧边栏清爽化：取消并删除了最底座的 Bohrium 科学家卡片及升级升级块，使整个左侧边栏底座高度精简利落。
+  3. 新建对话高亮修复：在 AppLayout.vue 中，将新建对话的高亮条件 active 修复为 activeMenuId === 'portal'，当用户位于提问门户主页时完美反向关联高亮。
+  4. 参考文献 TS 编译纠错：定位并解开了 ChatPage.vue 引用参考文献作为上下文时的类型红线，toggleContextRef 的传参严格对齐了 ContextRef 接口的数据契约，补齐必填字段 icon 且剔除无效的 fileType，化解 esbuild 编译隐患。]
+
+  [追加：侧栏绝对对齐、字阶梯队、项数限制与卡片防撑宽：
+  1. 历史对话手风琴头部齐平：彻底清除了 HistoryAccordion.vue 中 .accordion-header 头部自带的左右 0.5rem margin 偏置，使之与普通 nav-item 及“已订阅工具”头部左端在垂直线上绝对对齐。
+  2. 阶梯子项合适缩进对齐：将 ToolList.vue 和 HistoryAccordion.vue 中所有子项（工具、历史会话、查看全部）的 padding-left 统一定为 1.5rem。由于父级是 0.75rem，这在保持整体左端完美对齐的同时，提供了一道极其清晰自然的 12px 层级缩进阶梯。树形垂直连接线精确定位在 1.25rem 处进行对称指引，且字号调大到 0.88rem (父级一致)，“查看全部”略小为 0.78rem，前 5 项截取平铺防滚动。
+  3. 卡片防撑宽：在 Portal.vue 的 .grid-card 样式里锁死 min-width: 0 且 box-sizing: border-box。完美根治了由于文字单行 nowrap 和 Grid 默认最小宽度 min-width: auto 导致的列宽被强行顶开、使右侧卡片溢出对话框物理宽度 820px 的经典撑宽 Bug，主门户所有卡片和输入框实现极致完美的对齐闭环。]

@@ -141,6 +141,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     if (folder) folder.expanded = !folder.expanded
   }
 
+  /**
+   * @vibe-intent 添加消息并同步到当前 session。
+   * T9: 拦截用户第一条消息，自动生成对话标题（截取前 10 字加 ...）
+   * @vibe-model Claude Sonnet 4.6 (Thinking)
+   * @vibe-ref intents.md#2026-05-28
+   */
   function addMessage(msg: Omit<Message, 'id'>) {
     const newMsg: Message = {
       ...msg,
@@ -153,8 +159,25 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       sessions.value[currentIdx].messages = [...messages.value]
       if (msg.role === 'user') {
         sessions.value[currentIdx].preview = msg.content.slice(0, 30)
+
+        // T9: 如果对话标题还是默认值，则用用户第一条消息前 10 字自动生成标题
+        const isFirstUserMessage = messages.value.filter(m => m.role === 'user').length === 1
+        if (isFirstUserMessage && sessions.value[currentIdx].title === '新科学对话') {
+          // TODO: 后续接入 LLM API 动态生成标题摘要
+          sessions.value[currentIdx].title = generateChatTitle(msg.content)
+        }
       }
     }
+  }
+
+  /**
+   * T9: 标题自动生成函数（v1.0 临时实现：截取前 10 字）
+   * TODO: 后续接入 LLM API 动态生成标题摘要
+   */
+  function generateChatTitle(firstMessage: string): string {
+    const trimmed = firstMessage.trim().replace(/\n/g, ' ')
+    if (trimmed.length <= 10) return trimmed
+    return trimmed.slice(0, 10) + '...'
   }
 
   function createSession() {
@@ -166,7 +189,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     const newId = `s_${Date.now()}`
     const newSession: Session = {
       id: newId,
-      title: '新对话',
+      title: '新科学对话',   // T9: 初始标题统一为新科学对话
       preview: '开始新的探索...',
       createdAt: new Date(),
       messages: []

@@ -17,30 +17,18 @@
         <span class="brand-title" v-show="!isSidebarCollapsed">智慧材料终端</span>
       </div>
 
-      <!-- 2. 操作区：新科学对话 -->
-      <div class="sidebar-actions">
-        <button
-          class="new-chat-btn"
-          :class="{ 'collapsed-btn': isSidebarCollapsed }"
+      <!-- 3. 主导航菜单列表（垂直） -->
+      <div class="sidebar-nav">
+        <!-- 新建对话 nav-item：合并自原有按钮，删除独立"AI 对话"入口 -->
+        <!-- 点击 = createSession() + 跳转门户页 / 让用户在门户页输入问题 -->
+        <div
+          class="nav-item"
+          :class="{ active: activeMenuId === 'portal' }"
           @click="handleNewChat"
           title="开启新科学对话"
         >
-          <span class="mdi mdi-plus-circle-outline btn-icon"></span>
-          <span class="btn-text" v-show="!isSidebarCollapsed">新建对话</span>
-        </button>
-      </div>
-
-      <!-- 3. 主导航菜单列表（垂直） -->
-      <div class="sidebar-nav">
-        <!-- AI 对话 (Workspace) -->
-        <div
-          class="nav-item"
-          :class="{ active: activeMenuId === 'chat' }"
-          @click="navigateTo('chat')"
-          title="AI 对话工作站"
-        >
-          <span class="mdi mdi-forum-outline nav-icon"></span>
-          <span class="nav-label" v-show="!isSidebarCollapsed">AI 对话</span>
+          <span class="mdi mdi-plus-circle-outline nav-icon"></span>
+          <span class="nav-label" v-show="!isSidebarCollapsed">新建对话</span>
         </div>
 
         <!-- 科研知识库 (左右分布大屏) -->
@@ -92,9 +80,9 @@
         />
       </div>
 
-      <div class="sidebar-spacer"></div>
+      <!-- T1: sidebar-spacer 已删除，sidebar-nav (flex:1) 独占剩余高度 -->
 
-      <!-- 4. 底部：展开/收缩控制轨 -->
+      <!-- 5. 底部：展开/收缩控制轨 -->
       <div class="sidebar-footer">
         <button
           class="collapse-toggle-btn"
@@ -143,12 +131,14 @@ const handleLogoClick = () => {
   router.push('/')
 }
 
-/** 新建对话 */
+/**
+ * @vibe-intent 新建对话：初始化新 session 备用，然后跳转至门户页让用户输入第一个问题
+ * @vibe-model Gemini 3.5 Flash
+ * @vibe-ref intents.md#2026-05-28
+ */
 const handleNewChat = () => {
   workspaceStore.createSession()
-  if (route.name !== 'Chat') {
-    router.push('/chat')
-  }
+  router.push('/')
 }
 
 /** 主导航菜单点击跳转 */
@@ -221,19 +211,28 @@ watch(
   background-color: var(--bg-primary);
 }
 
-/* ======== 全局单列侧边栏 ======== */
+/* ======== 全局单列侧边栏 (Bohrium 微光科学灰蓝底色) ======== */
 .global-sidebar {
+  /**
+   * @vibe-intent 注入 Bohrium 经典柔和微光灰蓝色背景底色，对标科学风低视觉疲劳度
+   * @vibe-model Gemini 3.5 Flash
+   * @vibe-ref intents.md#2026-05-28
+   */
   width: 260px;
   min-width: 60px;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  background-color: var(--glass-bg, rgba(255, 255, 255, 0.02));
-  backdrop-filter: blur(20px);
-  border-right: 1px solid var(--border-color);
+  background-color: #ebedf3; 
+  border-right: 1px solid rgba(15, 23, 42, 0.06);
   transition: width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   overflow: hidden;
   z-index: 100;
+
+  :root[data-theme='dark'] & {
+    background-color: #0f1320;
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+  }
 
   &.collapsed {
     width: 60px;
@@ -267,14 +266,22 @@ watch(
   gap: 0.65rem;
   padding: 0 1.25rem;
   cursor: pointer;
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--bg-secondary);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.05);
+  background-color: rgba(255, 255, 255, 0.15);
   flex-shrink: 0;
   user-select: none;
   transition: all 0.2s;
 
+  :root[data-theme='dark'] & {
+    background-color: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
   &:hover {
-    background-color: var(--bg-tertiary);
+    background-color: rgba(255, 255, 255, 0.3);
+    :root[data-theme='dark'] & {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
   }
 
   .logo-wrap {
@@ -284,7 +291,7 @@ watch(
     align-items: center;
     justify-content: center;
     border-radius: 8px;
-    background: linear-gradient(135deg, var(--color-primary), #8b5cf6);
+    background: linear-gradient(135deg, #3b5998, #6d5dfc);
   }
 
   .logo-icon {
@@ -293,56 +300,14 @@ watch(
   }
 
   .brand-title {
-    font-size: 0.88rem;
+    font-size: 0.95rem;
     font-weight: 700;
-    letter-spacing: 0.05em;
-    background: linear-gradient(to right, var(--text-primary), #a78bfa);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    letter-spacing: 0.02em;
+    color: #1e293b;
     white-space: nowrap;
-  }
-}
 
-/* 2. 新对话按钮 */
-.sidebar-actions {
-  padding: 0.75rem 0.75rem 0.5rem;
-  display: flex;
-  justify-content: center;
-  flex-shrink: 0;
-
-  .new-chat-btn {
-    width: 100%;
-    height: 38px;
-    border: none;
-    border-radius: 10px;
-    background: linear-gradient(135deg, var(--color-primary), rgba(59, 130, 246, 0.7));
-    color: white;
-    font-size: 0.8rem;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    cursor: pointer;
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
-    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-
-    &:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35);
-      background: linear-gradient(135deg, var(--color-primary-hover), #8b5cf6);
-    }
-
-    &.collapsed-btn {
-      width: 36px;
-      height: 36px;
-      padding: 0;
-      border-radius: 50%;
-      
-      .btn-icon {
-        font-size: 1.25rem;
-        margin: 0;
-      }
+    :root[data-theme='dark'] & {
+      color: rgba(255, 255, 255, 0.9);
     }
   }
 }
@@ -358,6 +323,7 @@ watch(
   scrollbar-width: none;
   &::-webkit-scrollbar { display: none; }
 
+  /* 父级导航项字重下调至 500 中等，对标极简清纯质感 */
   .nav-item {
     display: flex;
     align-items: center;
@@ -365,18 +331,28 @@ watch(
     height: 40px;
     padding: 0 0.75rem;
     border-radius: 8px;
-    color: var(--text-secondary);
+    color: #475569;
     cursor: pointer;
-    font-size: 0.82rem;
-    font-weight: 500;
+    font-size: 0.88rem;       
+    font-weight: 500;          /* 字重调为 500 */
+    letter-spacing: 0.02em;
     user-select: none;
     transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+    :root[data-theme='dark'] & {
+      color: rgba(255, 255, 255, 0.65);
+    }
 
     .nav-icon {
       font-size: 1.15rem;
       width: 20px;
       text-align: center;
       flex-shrink: 0;
+      color: #64748b;
+
+      :root[data-theme='dark'] & {
+        color: rgba(255, 255, 255, 0.5);
+      }
     }
 
     .nav-label {
@@ -384,17 +360,33 @@ watch(
     }
 
     &:hover {
-      background-color: var(--bg-secondary);
-      color: var(--text-primary);
+      background-color: rgba(255, 255, 255, 0.4);
+      color: #0f172a;
+
+      :root[data-theme='dark'] & {
+        background-color: rgba(255, 255, 255, 0.05);
+        color: white;
+      }
     }
 
+    /* 弱化高亮激活项背景，用极其柔和的中低对比高亮，防刺眼 */
     &.active {
-      color: var(--color-primary);
-      background-color: rgba(59, 130, 246, 0.08);
-      border: 1px solid rgba(59, 130, 246, 0.15);
-      font-weight: 600;
+      color: #3b5998;
+      background-color: rgba(59, 89, 152, 0.08);
+      border: 1px solid rgba(59, 89, 152, 0.12);
 
-      .nav-icon { color: var(--color-primary); }
+      :root[data-theme='dark'] & {
+        color: #60a5fa;
+        background-color: rgba(96, 165, 250, 0.08);
+        border: 1px solid rgba(96, 165, 250, 0.12);
+      }
+
+      .nav-icon { 
+        color: #3b5998; 
+        :root[data-theme='dark'] & {
+          color: #60a5fa;
+        }
+      }
     }
   }
 }
@@ -417,9 +409,16 @@ watch(
     height: 40px;
     padding: 0 0.75rem;
     border-radius: 8px;
-    color: var(--text-secondary);
+    color: #475569;
     cursor: pointer;
+    font-size: 0.88rem;    
+    font-weight: 500;       /* 字重调为 500 */
+    letter-spacing: 0.02em;
     transition: all 0.2s;
+
+    :root[data-theme='dark'] & {
+      color: rgba(255, 255, 255, 0.65);
+    }
 
     .trigger-left {
       display: flex;
@@ -429,26 +428,36 @@ watch(
 
     .chevron {
       font-size: 0.95rem;
-      color: var(--text-secondary);
+      color: #64748b;
       opacity: 0.7;
     }
 
     &:hover {
-      background-color: var(--bg-secondary);
-      color: var(--text-primary);
+      background-color: rgba(255, 255, 255, 0.4);
+      color: #0f172a;
+
+      :root[data-theme='dark'] & {
+        background-color: rgba(255, 255, 255, 0.05);
+        color: white;
+      }
     }
   }
 
   &.expanded {
     .accordion-trigger {
-      color: var(--text-primary);
-      font-weight: 600;
+      color: #1f2937;
+      :root[data-theme='dark'] & {
+        color: white;
+      }
     }
   }
   
   &.active {
     .accordion-trigger {
-      color: var(--color-primary);
+      color: #3b5998;
+      :root[data-theme='dark'] & {
+        color: #60a5fa;
+      }
     }
   }
 }
@@ -456,48 +465,203 @@ watch(
 .accordion-body {
   width: 100%;
   overflow: hidden;
-  background-color: rgba(0, 0, 0, 0.08);
+  background-color: transparent;
   border-radius: 8px;
-  margin-top: 0.2rem;
+  margin-top: 0.1rem;
 }
 
 .inner-list-wrap {
-  max-height: 240px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--border-color) transparent;
+  scrollbar-color: rgba(0,0,0,0.1) transparent;
 }
 
-/* 过渡动画 */
-.accordion-enter-active,
-.accordion-leave-active {
-  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
-  max-height: 300px;
-}
-.accordion-enter-from,
-.accordion-leave-to {
-  max-height: 0;
-  opacity: 0;
+/* 4. Bohrium 科学家卡片与升级区域 */
+.sidebar-user-section {
+  display: flex;
+  flex-direction: column;
+  padding: 0.85rem;
+  margin: 0 0.5rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+  gap: 0.6rem;
+
+  :root[data-theme='dark'] & {
+    border-top-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .user-card {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.4);
+      :root[data-theme='dark'] & {
+        background-color: rgba(255, 255, 255, 0.05);
+      }
+    }
+
+    .user-avatar-wrap {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #3b5998;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.05rem;
+      flex-shrink: 0;
+    }
+
+    .user-meta {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      flex: 1;
+
+      .user-name {
+        font-size: 0.76rem;
+        font-weight: 600;
+        color: #1e293b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+
+        :root[data-theme='dark'] & {
+          color: white;
+        }
+      }
+
+      .user-role {
+        font-size: 0.64rem;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+
+    .user-arrow {
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+  }
+
+  .quota-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.45rem 0.65rem;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.45);
+    border: 1px solid rgba(15, 23, 42, 0.03);
+
+    :root[data-theme='dark'] & {
+      background-color: rgba(255, 255, 255, 0.02);
+      border-color: rgba(255, 255, 255, 0.04);
+    }
+
+    .quota-left {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+
+      .premium-star {
+        font-size: 0.85rem;
+        color: #8b5cf6;
+      }
+
+      .quota-level {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #4b5563;
+        :root[data-theme='dark'] & { color: rgba(255, 255, 255, 0.8); }
+      }
+
+      .upgrade-btn {
+        font-size: 0.6rem;
+        padding: 1px 4px;
+        border-radius: 4px;
+        background-color: #8b5cf6;
+        color: white;
+        font-weight: 500;
+        cursor: pointer;
+        transition: opacity 0.2s;
+
+        &:hover { opacity: 0.9; }
+      }
+    }
+
+    .quota-right {
+      .quota-count {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #1e293b;
+        :root[data-theme='dark'] & { color: rgba(255, 255, 255, 0.8); }
+      }
+    }
+  }
+
+  .aux-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.15rem 0.25rem;
+
+    .lang-selector {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: #64748b;
+      cursor: pointer;
+
+      &:hover { color: #1e293b; :root[data-theme='dark'] & { color: white; } }
+
+      .mdi { font-size: 0.85rem; }
+    }
+
+    .aux-icons {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+
+      .mdi {
+        font-size: 0.95rem;
+        color: #64748b;
+        cursor: pointer;
+        transition: color 0.15s;
+
+        &:hover { color: #1e293b; :root[data-theme='dark'] & { color: white; } }
+      }
+    }
+  }
 }
 
-.sidebar-spacer {
-  flex: 1;
-}
-
-/* 4. 折叠底部 */
+/* 5. 折叠底部 */
 .sidebar-footer {
   height: 48px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   padding: 0 0.75rem;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid rgba(15, 23, 42, 0.05);
   flex-shrink: 0;
+
+  :root[data-theme='dark'] & {
+    border-top-color: rgba(255, 255, 255, 0.04);
+  }
 
   .collapse-toggle-btn {
     background: transparent;
     border: none;
-    color: var(--text-secondary);
+    color: #64748b;
     width: 32px;
     height: 32px;
     border-radius: 6px;
@@ -509,8 +673,12 @@ watch(
     transition: all 0.2s;
 
     &:hover {
-      color: var(--text-primary);
-      background-color: var(--bg-secondary);
+      color: #1e293b;
+      background-color: rgba(255, 255, 255, 0.4);
+      :root[data-theme='dark'] & {
+        color: white;
+        background-color: rgba(255, 255, 255, 0.05);
+      }
     }
   }
 }
@@ -524,3 +692,4 @@ watch(
   min-width: 0;
 }
 </style>
+

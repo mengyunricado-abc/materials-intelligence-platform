@@ -1,16 +1,18 @@
 <template>
   <!--
    * @vibe-intent 全局 AI 学术问答与多文件对话主战场
-   * @vibe-model Gemini 3.5 Flash (High)
-   * @vibe-ref intents.md#2026-05-25
+   * T8: 顶部 header 改为展示当前 session 动态标题，配合 T9 标题自动生成
+   * @vibe-model Claude Sonnet 4.6 (Thinking)
+   * @vibe-ref intents.md#2026-05-28
    -->
   <div class="chat-page-container">
     <!-- ======== Middle: 主对话流展示区 ======== -->
     <main class="chat-main-area">
+      <!-- T8: 单一对话标题视图，去掉多标签 Tabs，仅显示当前 session 标题 -->
       <header class="chat-header">
         <div class="chat-title-info">
-          <span class="mdi" :class="workspaceStore.currentMode === 'academic-search' ? 'mdi-school-outline' : 'mdi-file-document-multiple-outline'"></span>
-          <h2>{{ workspaceStore.currentMode === 'academic-search' ? '学术搜索对话' : '多篇文件对话' }}</h2>
+          <span class="mdi mdi-forum-outline"></span>
+          <h2>{{ workspaceStore.currentSession?.title || '新科学对话' }}</h2>
         </div>
         <div class="mode-badge" :class="workspaceStore.currentMode">
           {{ workspaceStore.currentMode === 'academic-search' ? '学术模式' : '文件模式' }}
@@ -442,12 +444,12 @@ const toggleExpandRef = (id: string) => {
 
 // 引用参考文献为上下文
 const applyReferenceToContext = (refItem: any) => {
-  // 模拟引用动作
+  // 修复 toggleContextRef 传参使其符合 ContextRef 类型接口约束（加入 icon 字段，移除无效 fileType）
   workspaceStore.toggleContextRef({
     id: refItem.id,
     name: refItem.title,
     type: 'file',
-    fileType: 'md'
+    icon: 'mdi-file-document-outline'
   })
 }
 
