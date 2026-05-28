@@ -36,6 +36,9 @@
           ></span>
           <span class="mdi mdi-folder-outline node-icon project-icon"></span>
           <span class="node-name project-name">{{ project.name }}</span>
+          <div class="row-actions">
+            <span class="mdi mdi-file-plus-outline row-action-btn" title="新建文件" @click.stop="handleCreateTempDoc(project.id, null)"></span>
+          </div>
         </div>
 
         <!-- 项目内容（文件夹 + 散落文件） -->
@@ -46,12 +49,17 @@
             <div class="node-row folder-row">
               <div class="node-indent-1"></div>
               <span
+                v-if="folder.files && folder.files.length > 0"
                 class="mdi toggle-icon"
                 :class="folder.expanded ? 'mdi-chevron-down' : 'mdi-chevron-right'"
                 @click.stop="workspaceStore.toggleFolder(project.id, folder.id)"
               ></span>
+              <div v-else style="width: 16px; flex-shrink: 0;"></div>
               <span class="mdi mdi-folder-outline node-icon folder-icon"></span>
               <span class="node-name">{{ folder.name }}</span>
+              <div class="row-actions">
+                <span class="mdi mdi-file-plus-outline row-action-btn" title="新建文件" @click.stop="handleCreateTempDoc(project.id, folder.id)"></span>
+              </div>
             </div>
 
             <!-- ===== 文件层（在文件夹内） ===== -->
@@ -115,8 +123,11 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useWorkspaceStore } from '../../stores/workspace'
+import { useTabs } from '../../composables/useTabs'
+import type { TabItem } from '../../composables/useTabs'
 import type { FileItem, Project, ContextRef } from '../../types/index'
 
 const emit = defineEmits<{
@@ -124,8 +135,43 @@ const emit = defineEmits<{
   'file-upload': []
 }>()
 
+const router = useRouter()
+const { tabs, activeTabId } = useTabs()
 const workspaceStore = useWorkspaceStore()
 const { projects, contextRefs } = storeToRefs(workspaceStore)
+
+/**
+ * @vibe-intent 免弹窗直接在控制台生成临时空白文档并路由跳转，实现“先写后归档”极致学术工作流
+ * @vibe-model Antigravity
+ * @vibe-ref intents.md#2026-05-28
+ */
+const handleCreateTempDoc = (projectId: string, folderId: string | null) => {
+  // 若当前仅有未修改的初始 doc_default，在打开新文档时予以静默关闭销毁
+  if (tabs.value.length === 1 && tabs.value[0].id === 'doc_default') {
+    tabs.value = []
+  }
+
+  const tempId = `doc_temp_${Date.now()}`
+  const tempTitle = `未命名文档_${tabs.value.length + 1}.md`
+  
+  const newTab: TabItem = {
+    id: tempId,
+    title: tempTitle,
+    type: 'doc',
+    fileType: 'md',
+    icon: 'mdi-file-document-outline',
+    iconClass: 'text-blue-400',
+    tempProjectId: projectId,
+    tempFolderId: folderId,
+    isTemp: true
+  }
+
+  tabs.value.push(newTab)
+  activeTabId.value = tempId
+  
+  // 顺滑路由跳转到控制台
+  router.push('/console')
+}
 
 /** 判断某文件是否在上下文中 */
 const isFileInContext = (fileId: string) =>
@@ -228,6 +274,7 @@ const toggleFileContext = (file: FileItem) => {
     color: var(--text-primary);
 
     .node-checkbox { opacity: 1; }
+    .row-actions { opacity: 1; }
   }
 
   &.ctx-selected {
@@ -235,6 +282,32 @@ const toggleFileContext = (file: FileItem) => {
     color: var(--text-primary);
 
     .node-checkbox { opacity: 1; }
+    .row-actions { opacity: 1; }
+  }
+}
+
+/* 行操作动作：淡雅常驻展示， hover 时高亮，极富可用性 */
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.row-action-btn {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.1rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &:hover {
+    color: var(--color-primary);
+    background-color: var(--bg-primary);
   }
 }
 
@@ -321,5 +394,96 @@ const toggleFileContext = (file: FileItem) => {
   gap: 0.4rem;
   flex-shrink: 0;
   background-color: rgba(59, 130, 246, 0.05);
+}
+
+/* Glass 弹窗样式 */
+.glass-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.glass-dialog {
+  width: 320px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow-lg);
+  animation: scaleIn 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  h4 {
+    margin: 0 0 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+}
+
+.dialog-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  outline: none;
+  margin-bottom: 1.25rem;
+  box-sizing: border-box;
+  
+  &:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+  }
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.dialog-btn {
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+
+  &.cancel {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    &:hover { background-color: var(--bg-tertiary); color: var(--text-primary); }
+  }
+
+  &.confirm {
+    background-color: var(--color-primary);
+    color: white;
+    &:hover:not(:disabled) { background-color: var(--color-primary-hover); }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 </style>

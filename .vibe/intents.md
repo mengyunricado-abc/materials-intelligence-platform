@@ -120,7 +120,7 @@
 
 ### [2026-05-28] - 侧边栏 UI 精修与导航逻辑收敛（两大战役共9项）
 - **驱动模型**: Claude Sonnet 4.6 (Thinking)
-- **涉及文件**: `src/layouts/AppLayout.vue`, `src/components/Sidebar/ToolList.vue`, `src/components/Sidebar/HistoryAccordion.vue`, `src/stores/workspace.ts`, `src/pages/ChatPage.vue`, `src/pages/Portal.vue`
+- **涉及文件**: `src/layouts/AppLayout.vue`, `src/components/Sidebar/ToolList.vue`, `src/components/Sidebar/HistoryAccordion.vue`, `src/stores/workspace.ts`, `src/pages/ChatPage.vue`, `src/pages/Portal.vue`, `src/layouts/ConsoleLayout.vue`, `src/pages/KnowledgePage.vue`, `src/types/index.ts`
 - **变更逻辑摘要**:
   本次修改源于与用户的深度 /grill-me 需求对齐会话，经逐问确认后执行。核心决策如下：
 
@@ -154,4 +154,37 @@
   [追加：侧栏绝对对齐、字阶梯队、项数限制与卡片防撑宽：
   1. 历史对话手风琴头部齐平：彻底清除了 HistoryAccordion.vue 中 .accordion-header 头部自带的左右 0.5rem margin 偏置，使之与普通 nav-item 及“已订阅工具”头部左端在垂直线上绝对对齐。
   2. 阶梯子项合适缩进对齐：将 ToolList.vue 和 HistoryAccordion.vue 中所有子项（工具、历史会话、查看全部）的 padding-left 统一定为 1.5rem。由于父级是 0.75rem，这在保持整体左端完美对齐的同时，提供了一道极其清晰自然的 12px 层级缩进阶梯。树形垂直连接线精确定位在 1.25rem 处进行对称指引，且字号调大到 0.88rem (父级一致)，“查看全部”略小为 0.78rem，前 5 项截取平铺防滚动。
-  3. 卡片防撑宽：在 Portal.vue 的 .grid-card 样式里锁死 min-width: 0 且 box-sizing: border-box。完美根治了由于文字单行 nowrap 和 Grid 默认最小宽度 min-width: auto 导致的列宽被强行顶开、使右侧卡片溢出对话框物理宽度 820px 的经典撑宽 Bug，主门户所有卡片和输入框实现极致完美的对齐闭环。]
+  3. 卡片防撑宽：在 Portal.vue 的 .grid-card 样式里锁死 min-width: 0 且 box-sizing: border-box。完美根治了由于文字单行 nowrap 和 Grid 默认最小宽度 min-width: auto 导致的列宽被强行顶开、使右侧卡片溢出对话框物理宽度 820px 的经典撑宽 Bug，主门户所有卡片 and 输入框实现极致完美的对齐闭环。]
+
+  [追加：材料智慧平台双物理隔离体系与文件树高级交互重构：
+  1. 场景拓扑智能路由跳转分流：在 Session 接口中扩展 `type: 'qa' | 'doc-edit'`，并在 HistoryAccordion 和 HistoryPage 开启智能分流，qa 跳 /chat，doc-edit 跳 /console 并激活对应文档。
+  2. 同文档多会话与 Copilot 物理隔离：切换文档 Tab 时自动调用 `loadOrCreateDocSession` 匹配专属对话；AI 最近胶囊栏只过滤展示当前文档专属的对话；支持右上角新建并绑定当前文档。
+  3. 最近历史隐藏而非物理删除：侧栏和胶囊栏叉号调用 `hideSessionFromRecent` 设为最近隐藏，最近列表和胶囊栏中不可见，只有在查看全部 /history 全量管理页才物理删除。
+  4. 空会话与挂载条垃圾清理：添加 `cleanupEmptySessions` 静默清理机制；剥离 Console 右侧 AI 助手的 ContextBar 上下文挂载条以进行知识库隔离。
+  5. 树节点高级交互与保存落户：FileList 空文件夹折叠图标隐藏；在项目和文件夹右侧追加 row-actions 新建文件并打开 Tab；ConsoleLayout 新建白板文档在保存时弹出 Glass 路径选择器，动态归档文件树并绑定 Tab。]
+
+  [追加：彻底排查并清理废弃 openToolTab 漏网之鱼：
+  在 useTabs 中物理删除了 openToolTab 后，同步清扫了在 ToolsGallery、ConsoleLayout 内部解构中的残存引用，并打通了大厅中“打开工具”按钮向 `/tools/run` 物理隔离空间的无缝路由跳转分流，彻底杜绝 ReferenceError 未定义报错。]
+
+  [追加：空白文档免弹窗“先写后归档”保存交互高阶闭环与体验隐患终极治理：
+  1. 侧栏树与大屏新建解耦：重构了 FileList.vue 和 KnowledgePage.vue，将原来中断思路的新建文件名弹窗彻底移除，改写为在 activeTabId 中生成带有 tempProjectId/tempFolderId 临时归属字段的 `doc_temp_xxx` 临时空白 Tab，并顺滑 router.push('/console') 瞬间跳转开写，实现思维极净零阻力。
+  2. useTabs.ts 接口扩充：在 TabItem 接口声明中新增了 tempProjectId、tempFolderId 以及 isTemp 三个可选字段，打通临时白板属性向下传递。
+  3. 保存路径与格式高阶重塑：深度重绘了 ConsoleLayout.vue 的 Glass 归档保存弹窗。表单最上方配置了 Markdown/Word/Excel 三色选项卡，输入框右侧内嵌格式后缀，且默认智能回显临时 Tab 绑定的归宿项目/文件夹。
+  4. 页签覆盖与会话自动重绘：一旦点击保存，物理写入文件树，返回物理 ID。通过 activeTab 属性深层强行覆盖更新，打通 activeTabId 双向绑定与 Tab title 实时更新，无感销毁临时态，并优雅重绘出属于该新物理文件节点的专属 Copilot AI 协同会话，完成惊艳的交互高阶闭环。
+  5. 初始空白文档废除：在 useTabs.ts 中物理废除了系统一上来强行初始化的 doc_default (未命名文档_1.md) 临时占位，回归了在没有任何打开文档时最干净纯洁的 IDE “材料智慧科研空间”空状态面板，大幅净化了全局判断负担。
+  6. AI 润色模拟物理删除：在 Console.vue 中物理移去了界面左上角多余、冷冰冰且硬编码的 AI 润色模拟按钮。用户能够完美通过在右侧 Copilot 发送任意指令点击气泡卡片，唤醒华丽的 Diff 对比与红绿线，保证了演示路径与真实使用逻辑 100% 呼应。
+  7. 侧栏历史选择拦截漏洞根治：在 AppLayout.vue 中废除了历史对话列表被点击时强制劫持跳转到学术搜索 /chat 的硬编码 handler。自此彻底释放了 HistoryAccordion.vue 中所打造的精细化“文档跳 /console，工具跳运行，学术跳问答”的对称完美分流！
+  8. 知识库多会话专属与绝对物理隔离：在大屏 KnowledgePage.vue 中引进了 recentKbSessions 胶囊以及 createKbSession 多会话支持，并在 createSession 中补充了 knowledge 专属的引导欢迎语。通过 watch 与 onMounted 强行在面板展开和切换时自动绑定加载/锁定对应知识库的会话，彻底解决了大屏右侧问答残留和被别的历史对话污染的问题。
+  9. 门户提问强制生成新会话：重构了 Portal.vue 中的 submit 方法。提问时自动前置调用 `workspaceStore.createSession('academic')`，物理确保了“凡是从门户页发起的提问，一律 100% 自动创建并进入全新学术对话”，杜绝了残留旧会话被污染的历史残留。
+  10. 门户快捷工具大卡片跳转修复：重构了 Portal.vue 中的 openTool 方法，将原来跳往旧控制台 Workspace 的废弃路由修正为直接跳转至常用科学工具大屏运行专属路由 `/tools/run?toolId=...`，确保了与全新的工具大屏物理隔离空间体验完美看齐！
+  11. 修复 Vue 依赖导入遗漏：修复了 KnowledgePage.vue 在重构过程中 Vue 导入时遗漏 watch 与 onMounted 导致的 ReferenceError 隐患，恢复了系统的绝对稳健运行。
+  12. 攻克 Vue 3 计算属性赋值死锁：解决了保存落户时直接修改 computed 计算属性 activeTab 引发响应式提前重新求值而退化为 undefined 导致的 crash 崩溃。通过 tabs.value 局部原始引用先行修改再更新 activeTabId 的高能方案，确保了页签重塑 100% 健壮运行。
+  13. 攻克第三轮深度测试 4 项高阶交互漏洞与 Bug：
+      - 根治新建页签保存物理落户后的“双专属会话”双重缓存漏洞：在 `workspace.ts` 中封装了高内聚的 `upgradeDocSession` action。在保存时对 sessions 数组整卷强制重新赋值，物理触发 Pinia 的 reactive 深度响应式重绘以及 `pinia-plugin-persistedstate` 的 `localStorage` 硬盘重写。
+      - 补全挂载文献显示：在 `KnowledgePage.vue` 中补足了声明遗漏 of `mountedFiles` 计算属性，彻底激活了大屏顶部磨砂金色 `.kb-mounted-context-bar` 文献 chip 的显示与一键解耦。
+      - 彻底打通历史跳转大屏还原联动：在 `KnowledgePage.vue` 中封装并引入了 `handleHistoryQueryRoute` 核心路由拦截器。在 `onMounted` 与路由 `watch` 时自动触发，精准还原 AI 面板的展开、专属 knowledge 会话的 switch 激活，并基于 session 的 fileId 树状回溯，自动反向点亮左侧知识树的项目/文件夹节点。
+      - 智能科学改名：升级了 `workspace.ts` 的 `addMessage` 机制，在用户首次提问时智能检测，若有文献挂载，则将标题重塑为《关于 [首个文件名] 的文献精读》，夯实高定科研学术质感。
+  14. 攻克已挂载文献的会话隔离与精准还原：
+      - 问题根因：之前系统的 `contextRefs` 属性是全局共享的一个 ref 状态，导致在不同历史会话间切换时，挂载文献呈现为最新全局的文献，产生了严重的会话污染。
+      - 物理打通：在 `types/index.ts` 的 `Session` 接口中扩充可选字段 `contextRefs?: ContextRef[]`；在 `workspace.ts` 状态机里，于 `switchSession`、`createSession` 及各 `loadOrCreateSession` 动作中，实现对 `contextRefs` 的高能备份与双向快照重塑。当进行会话切换时，能安全暂存当前会话最新的文献挂载状态，并完全还原出目标会话当时挂载文献的特定快照，达成殿堂级的会话环境无损恢复。]
+

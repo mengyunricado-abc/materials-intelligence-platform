@@ -231,8 +231,10 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useWorkspaceStore } from '../stores/workspace'
 
 const router = useRouter()
+const workspaceStore = useWorkspaceStore()
 const prompt = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const isDark = ref(false)
@@ -297,17 +299,24 @@ const resizeTextarea = () => {
 }
 
 /**
- * @vibe-intent 首个问题提交后，携带 prompt 跳转至独立学术/文件对话主页
- * @vibe-model Gemini 3.5 Flash
+ * @vibe-intent 首个问题提交后，前置强制开启纯净学术问答新 Session，携带 prompt 跳转至独立学术问答主页
+ * @vibe-model Antigravity
  * @vibe-ref intents.md#2026-05-28
  */
 const submit = () => {
   if (!prompt.value.trim()) return
+  // 强行前置开启一个干净的学术问答新 Session，锁定问答与新对话隔离原则
+  workspaceStore.createSession('academic')
   router.push({ name: 'Chat', query: { q: prompt.value } })
 }
 
+/**
+ * @vibe-intent 快捷卡片跳转常用科学工具大屏运行专属路由，彻底解耦 Workspace 混杂环境
+ * @vibe-model Antigravity
+ * @vibe-ref intents.md#2026-05-28
+ */
 const openTool = (toolId: string) => {
-  router.push({ name: 'Workspace', query: { toolId } })
+  router.push(`/tools/run?toolId=${toolId}`)
 }
 
 // ---- 精美材料科学图文案例池 ----

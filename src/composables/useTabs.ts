@@ -16,24 +16,15 @@ export interface TabItem {
   fileType?: 'md' | 'docx' | 'xlsx' | 'other';
   icon?: string;
   iconClass?: string;
+  // 以下为临时归档辅助信息
+  tempProjectId?: string;
+  tempFolderId?: string | null;
+  isTemp?: boolean;
 }
 
 // Global state for tabs (simulating a store)
 const tabs = ref<TabItem[]>([]);
 const activeTabId = ref<string>('');
-
-// Initialize with default document
-if (tabs.value.length === 0) {
-  tabs.value.push({
-    id: 'doc_default',
-    title: '未命名文档_01.md',
-    type: 'doc',
-    fileType: 'md',
-    icon: 'mdi-file-document-outline',
-    iconClass: 'text-blue-400'
-  });
-  activeTabId.value = 'doc_default';
-}
 
 /** 根据文件名推断 fileType */
 function inferFileType(name: string): TabItem['fileType'] {
@@ -46,31 +37,6 @@ function inferFileType(name: string): TabItem['fileType'] {
 
 export function useTabs() {
   const activeTab = computed(() => tabs.value.find(t => t.id === activeTabId.value));
-
-  const openToolTab = (toolId: string) => {
-    const existingTab = tabs.value.find(t => t.id === toolId);
-    if (existingTab) {
-      activeTabId.value = toolId;
-      return;
-    }
-
-    const toolConfig = toolRegistry.find(t => t.id === toolId);
-    if (!toolConfig) {
-      console.warn(`Tool with id ${toolId} not found in registry.`);
-      return;
-    }
-
-    const newTab: TabItem = {
-      id: toolConfig.id,
-      title: toolConfig.name,
-      type: 'tool',
-      icon: toolConfig.icon,
-      iconClass: toolConfig.iconClass
-    };
-
-    tabs.value.push(newTab);
-    activeTabId.value = newTab.id;
-  };
 
   const openFileTab = (file: any) => {
     const existingTab = tabs.value.find(t => t.id === file.id);
@@ -116,7 +82,6 @@ export function useTabs() {
     tabs,
     activeTabId,
     activeTab,
-    openToolTab,
     openFileTab,
     closeTab,
     setActiveTab

@@ -25,6 +25,25 @@
       </div>
     </div>
 
+    <!-- 会话类型分类 Tab 栏 -->
+    <div class="history-tabs">
+      <button class="tab-btn" :class="{ active: activeTypeTab === 'all' }" @click="activeTypeTab = 'all'">
+        <span class="mdi mdi-forum-outline"></span> 全部会话
+      </button>
+      <button class="tab-btn" :class="{ active: activeTypeTab === 'academic' }" @click="activeTypeTab = 'academic'">
+        <span class="mdi mdi-school"></span> 学术搜索问答
+      </button>
+      <button class="tab-btn" :class="{ active: activeTypeTab === 'knowledge' }" @click="activeTypeTab = 'knowledge'">
+        <span class="mdi mdi-brain"></span> 知识库问答
+      </button>
+      <button class="tab-btn" :class="{ active: activeTypeTab === 'doc-edit' }" @click="activeTypeTab = 'doc-edit'">
+        <span class="mdi mdi-file-document-edit-outline"></span> 控制台文档助手
+      </button>
+      <button class="tab-btn" :class="{ active: activeTypeTab === 'tool-edit' }" @click="activeTypeTab = 'tool-edit'">
+        <span class="mdi mdi-toolbox-outline"></span> 工具运行助手
+      </button>
+    </div>
+
     <!-- 会话列表 -->
     <div class="sessions-grid">
       <div
@@ -32,11 +51,11 @@
         :key="session.id"
         class="session-card"
         :class="{ active: session.id === activeSessionId }"
-        @click="handleSelect(session.id)"
+        @click="handleSelect(session)"
       >
         <div class="card-header">
-          <div class="card-icon">
-            <span class="mdi mdi-chat-processing-outline"></span>
+          <div class="card-icon" :class="session.type">
+            <span class="mdi" :class="getSessionIcon(session.type)"></span>
           </div>
           <div class="card-meta">
             <div class="card-title">{{ session.title || '新对话' }}</div>
@@ -73,23 +92,53 @@ import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useWorkspaceStore } from '../stores/workspace'
 
+import { useTabs } from '../composables/useTabs'
+
 const router = useRouter()
+const { openFileTab } = useTabs()
 const workspaceStore = useWorkspaceStore()
 const { sessions, activeSessionId } = storeToRefs(workspaceStore)
 
 const searchQuery = ref('')
+const activeTypeTab = ref('all')
 
 const filteredSessions = computed(() => {
-  if (!searchQuery.value.trim()) return sessions.value
+  let list = sessions.value
+  
+  if (activeTypeTab.value !== 'all') {
+    list = list.filter(s => s.type === activeTypeTab.value)
+  }
+
+  if (!searchQuery.value.trim()) return list
   const q = searchQuery.value.toLowerCase()
-  return sessions.value.filter(
+  return list.filter(
     s => s.title?.toLowerCase().includes(q) || s.preview?.toLowerCase().includes(q)
   )
 })
 
-const handleSelect = (id: string) => {
-  workspaceStore.switchSession(id)
-  router.push('/console')
+const getSessionIcon = (type?: string) => {
+  if (type === 'academic') return 'mdi-school'
+  if (type === 'knowledge') return 'mdi-brain'
+  if (type === 'doc-edit') return 'mdi-file-document-edit-outline'
+  if (type === 'tool-edit') return 'mdi-toolbox-outline'
+  return 'mdi-chat-processing-outline'
+}
+
+const handleSelect = (session: any) => {
+  workspaceStore.switchSession(session.id)
+  if (session.type === 'doc-edit' && session.fileId) {
+    const file = workspaceStore.allFiles.find(f => f.id === session.fileId)
+    if (file) {
+      openFileTab(file)
+    }
+    router.push('/console')
+  } else if (session.type === 'tool-edit' && session.fileId) {
+    router.push(`/tools/run?toolId=${session.fileId}`)
+  } else if (session.type === 'knowledge') {
+    router.push(`/knowledge?sessionId=${session.id}&openChat=true`)
+  } else {
+    router.push('/chat')
+  }
 }
 
 const formatDate = (date: Date | string) => {
@@ -181,6 +230,42 @@ const formatDate = (date: Date | string) => {
   &:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
 }
 
+/* ---- 会话分类 Tab 栏样式 ---- */
+.history-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.5rem;
+  flex-wrap: wrap;
+
+  .tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 20px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      color: var(--text-primary);
+      background-color: var(--bg-secondary);
+    }
+
+    &.active {
+      background-color: rgba(59, 130, 246, 0.1);
+      color: var(--color-primary);
+      border-color: rgba(59, 130, 246, 0.2);
+    }
+  }
+}
+
 /* ---- 会话网格 ---- */
 .sessions-grid {
   display: grid;
@@ -226,6 +311,11 @@ const formatDate = (date: Date | string) => {
   flex-shrink: 0;
 
   .mdi { font-size: 1.1rem; color: var(--color-primary); }
+  
+  &.academic { background: rgba(59, 130, 246, 0.12); .mdi { color: #3b82f6; } }
+  &.knowledge { background: rgba(16, 185, 129, 0.12); .mdi { color: #10b981; } }
+  &.doc-edit { background: rgba(139, 92, 246, 0.12); .mdi { color: #8b5cf6; } }
+  &.tool-edit { background: rgba(245, 158, 11, 0.12); .mdi { color: #f59e0b; } }
 }
 
 .card-meta {

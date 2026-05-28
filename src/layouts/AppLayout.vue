@@ -173,9 +173,7 @@ const toggleHistoryAccordion = () => {
 
 /** 历史列表项选中事件 */
 const handleHistorySelect = () => {
-  if (route.name !== 'Chat') {
-    router.push('/chat')
-  }
+  // 废除硬编码的 router.push('/chat') 劫持，将路由跳转分流交由 HistoryAccordion 闭环控制
 }
 
 // ---- 路由联动侦听：自动高亮侧栏对应项 ----

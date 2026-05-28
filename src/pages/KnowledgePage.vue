@@ -96,6 +96,12 @@
               <span class="mdi mdi-robot-outline"></span>
               <span>{{ isKbChatOpen ? '收起 AI 问答' : '知识库 AI 问答' }}</span>
             </button>
+
+            <!-- 新建文件 -->
+            <button class="action-btn" @click="handleCreateTempDocInKb" style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary);">
+              <span class="mdi mdi-file-plus-outline"></span>
+              <span>新建文件</span>
+            </button>
             
             <!-- 上传文献数据 -->
             <button class="action-btn upload-btn" @click="triggerUpload">
@@ -238,9 +244,46 @@
               <p>模式已锁定: 知识库问答</p>
             </div>
           </div>
-          <button class="close-panel-btn" @click="isKbChatOpen = false">
-            <span class="mdi mdi-close"></span>
-          </button>
+          <div class="header-right" style="display: flex; align-items: center; gap: 0.35rem;">
+            <button class="icon-btn animate-pulse-hover" @click="createKbSession" title="开启新对话" style="color: var(--text-secondary); background: transparent; border: none; cursor: pointer; display: flex; align-items: center; font-size: 1.1rem; padding: 0.25rem; border-radius: 4px;">
+              <span class="mdi mdi-plus"></span>
+            </button>
+            <button class="close-panel-btn" @click="isKbChatOpen = false">
+              <span class="mdi mdi-close"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 最近会话胶囊标签栏 (仅展示当前知识库节点专属的) -->
+        <div class="recent-sessions-bar" v-show="recentKbSessions.length > 0" style="display: flex; gap: 0.5rem; padding: 0.5rem 1rem; border-bottom: 1px solid var(--border-color); overflow-x: auto; scrollbar-width: none;">
+          <div
+            v-for="session in recentKbSessions"
+            :key="session.id"
+            class="session-capsule"
+            :class="{ active: session.id === activeSessionId }"
+            @click="workspaceStore.switchSession(session.id)"
+            style="display: flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.6rem; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 20px; font-size: 0.72rem; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; white-space: nowrap;"
+          >
+            <span class="mdi mdi-chat-outline"></span>
+            <span class="session-title" style="max-width: 80px; overflow: hidden; text-overflow: ellipsis;">{{ session.title || '新对话' }}</span>
+            <span class="mdi mdi-close-circle close-session-icon" @click.stop="workspaceStore.hideSessionFromRecent(session.id)" style="font-size: 0.8rem; cursor: pointer; opacity: 0.6;"></span>
+          </div>
+        </div>
+
+        <!-- 已装载科学大脑文献上下文指示 (金色质感小 chip 浮动区) -->
+        <div class="kb-mounted-context-bar" v-show="mountedFiles.length > 0" style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; padding: 0.4rem 1rem; border-bottom: 1px solid var(--border-color); background-color: rgba(245, 158, 11, 0.03);">
+          <span class="mdi mdi-brain" style="font-size: 0.8rem; color: #f59e0b;"></span>
+          <span style="font-size: 0.68rem; font-weight: 600; color: var(--text-secondary);">已挂载文献:</span>
+          <div 
+            v-for="file in mountedFiles" 
+            :key="file.id" 
+            class="mounted-chip"
+            style="display: flex; align-items: center; gap: 0.2rem; padding: 0.1rem 0.4rem; background-color: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 4px; font-size: 0.64rem; color: #b45309;"
+          >
+            <span class="mdi mdi-file-document-outline"></span>
+            <span>{{ file.name }}</span>
+            <span class="mdi mdi-close-circle" @click.stop="workspaceStore.removeContextRef(file.id)" style="font-size: 0.72rem; cursor: pointer; opacity: 0.7; transition: color 0.15s;"></span>
+          </div>
         </div>
 
         <!-- 对话消息列表 -->
@@ -326,22 +369,34 @@
         <span class="toast-text">{{ toastMessage }}</span>
       </div>
     </transition>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, nextTick, reactive, watch, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useTabs } from '../composables/useTabs'
+import type { TabItem } from '../composables/useTabs'
 import { marked } from 'marked'
 import type { FileItem, ContextRef } from '../types/index'
 
 const router = useRouter()
-const { openFileTab } = useTabs()
+const route = useRoute()
+const { tabs, activeTabId, openFileTab } = useTabs()
 const workspaceStore = useWorkspaceStore()
-const { projects, contextRefs } = storeToRefs(workspaceStore)
+const { projects, contextRefs, activeSessionId, sessions } = storeToRefs(workspaceStore)
+
+/**
+ * @vibe-intent 过滤出当前全局会话中挂载的所有文献 files，物理呈现金色 chip 指示
+ * @vibe-model Antigravity
+ * @vibe-ref intents.md#2026-05-28
+ */
+const mountedFiles = computed(() => {
+  return contextRefs.value.filter(r => r.type === 'file')
+})
 
 // ---- UI 筛选状态 ----
 const searchQuery = ref('')
@@ -370,6 +425,147 @@ const typeFilters = [
 const showToast = ref(false)
 const toastMessage = ref('')
 
+/**
+ * @vibe-intent 免弹窗直接在控制台生成临时空白文档并路由跳转，实现“先写后归档”极致学术工作流
+ * @vibe-model Antigravity
+ * @vibe-ref intents.md#2026-05-28
+ */
+const handleCreateTempDocInKb = () => {
+  // 若当前仅有未修改 of 初始 doc_default，在打开新文档时予以静默关闭销毁
+  if (tabs.value.length === 1 && tabs.value[0].id === 'doc_default') {
+    tabs.value = []
+  }
+
+  let projectId = projects.value[0]?.id || ''
+  let folderId = null
+
+  if (activeNode.value) {
+    if (activeNode.value.type === 'project') {
+      projectId = activeNode.value.id
+    } else if (activeNode.value.type === 'folder') {
+      projectId = activeNode.value.projectId || ''
+      folderId = activeNode.value.id
+    }
+  }
+
+  const tempId = `doc_temp_${Date.now()}`
+  const tempTitle = `未命名文档_${tabs.value.length + 1}.md`
+  
+  const newTab: TabItem = {
+    id: tempId,
+    title: tempTitle,
+    type: 'doc',
+    fileType: 'md',
+    icon: 'mdi-file-document-outline',
+    iconClass: 'text-blue-400',
+    tempProjectId: projectId,
+    tempFolderId: folderId,
+    isTemp: true
+  }
+
+  tabs.value.push(newTab)
+  activeTabId.value = tempId
+  
+  // 顺滑路由跳转到控制台
+  router.push('/console')
+}
+
+// ---- 知识库专属多会话管理与会话隔离 ----
+const recentKbSessions = computed(() => {
+  const kbId = activeNode.value ? activeNode.value.id : 'global_kb'
+  return sessions.value.filter(s => 
+    s.type === 'knowledge' && 
+    s.fileId === kbId && 
+    !s.hiddenInRecent
+  ).slice(0, 3)
+})
+
+const loadKbSession = () => {
+  const kbId = activeNode.value ? activeNode.value.id : 'global_kb'
+  const kbTitle = activeNode.value 
+    ? (activeNode.value.type === 'project' ? currentPath.value.project?.name : currentPath.value.folder?.name) 
+    : '全局知识库'
+  workspaceStore.loadOrCreateKnowledgeSession(kbId, kbTitle)
+}
+
+const createKbSession = () => {
+  const kbId = activeNode.value ? activeNode.value.id : 'global_kb'
+  const kbTitle = activeNode.value 
+    ? (activeNode.value.type === 'project' ? currentPath.value.project?.name : currentPath.value.folder?.name) 
+    : '全局知识库'
+  
+  workspaceStore.createSession('knowledge', kbId)
+  
+  // 智能给 Session 起一个学术专属主题名称
+  const current = workspaceStore.currentSession
+  if (current) {
+    current.title = `关于 ${kbTitle} 的科学探索`
+  }
+}
+
+/**
+ * @vibe-intent 核心路由劫持 handleHistoryQueryRoute：实现全部历史中点击知识库会话时面板毫秒级自动拉开、会话还原以及左侧节点反向高亮联动
+ * @vibe-model Antigravity
+ * @vibe-ref intents.md#2026-05-28
+ */
+const handleHistoryQueryRoute = () => {
+  const sessionId = route.query.sessionId as string
+  const openChat = route.query.openChat === 'true'
+  
+  if (openChat) {
+    isKbChatOpen.value = true
+    workspaceStore.updateMode('knowledge-qa')
+  }
+  
+  if (sessionId) {
+    // 1. 根据 session 的 fileId 反向高亮左侧树节点
+    const currentSess = sessions.value.find(s => s.id === sessionId)
+    if (currentSess && currentSess.fileId && currentSess.fileId !== 'global_kb') {
+      const proj = projects.value.find(p => p.id === currentSess.fileId)
+      if (proj) {
+        activeNode.value = { type: 'project', id: proj.id }
+      } else {
+        projects.value.forEach(p => {
+          const fold = p.folders.find(f => f.id === currentSess.fileId)
+          if (fold) {
+            activeNode.value = { type: 'folder', id: fold.id, projectId: p.id }
+          }
+        })
+      }
+    } else if (currentSess && currentSess.fileId === 'global_kb') {
+      activeNode.value = null
+    }
+    
+    // 2. 强行把 activeSession 切换并加载，利用 nextTick 绕过 activeNode watch 的默认会话覆盖
+    nextTick(() => {
+      workspaceStore.switchSession(sessionId)
+      hasKbChatted.value = true
+    })
+  }
+}
+
+// 深度监控面板展开和当前选中节点变化，物理隔离并锁定知识库会话绑定，防残留与历史污染
+watch([isKbChatOpen, activeNode], ([open]) => {
+  if (open) {
+    // 仅在非路由 sessionId 跳转还原的情况下自动加载默认会话
+    if (!route.query.sessionId) {
+      loadKbSession()
+    }
+  }
+}, { immediate: true })
+
+onMounted(() => {
+  handleHistoryQueryRoute()
+  if (isKbChatOpen.value && !route.query.sessionId) {
+    loadKbSession()
+  }
+})
+
+// 监听路由参数，实现全部历史/侧栏历史点击时秒级重绘与高亮跟随
+watch(() => route.query, () => {
+  handleHistoryQueryRoute()
+})
+
 const triggerToast = (msg: string) => {
   toastMessage.value = msg
   showToast.value = true
@@ -383,6 +579,7 @@ const toggleKbChat = () => {
   isKbChatOpen.value = !isKbChatOpen.value
   if (isKbChatOpen.value) {
     workspaceStore.updateMode('knowledge-qa')
+    loadKbSession()
   }
 }
 

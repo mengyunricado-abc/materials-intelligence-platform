@@ -79,10 +79,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { toolRegistry } from '../utils/toolsRegistry'
-import { useTabs } from '../composables/useTabs'
-
 const router = useRouter()
-const { openToolTab } = useTabs()
 
 const searchQuery = ref('')
 const selectedCategory = ref('全部')
@@ -110,8 +107,7 @@ const toggleSubscribe = (toolId: string) => {
 }
 
 const openTool = (toolId: string) => {
-  openToolTab(toolId)
-  router.push('/console')
+  router.push(`/tools/run?toolId=${toolId}`)
 }
 </script>
 

@@ -18,6 +18,9 @@
           </span>
         </div>
         <div class="workspace-actions">
+          <button class="action-btn" v-if="isTabUnsaved" @click="openSaveFileDialog">
+            <span class="mdi mdi-content-save-outline"></span> 保存文档
+          </button>
           <button class="action-btn"><span class="mdi mdi-eye-outline"></span> 预览</button>
           <button class="action-btn primary"><span class="mdi mdi-export"></span> 导出</button>
         </div>
@@ -49,8 +52,8 @@
           </div>
         </div>
 
-        <!-- 文档编辑区 (默认常驻) -->
-        <div class="tab-pane" v-show="activeTabId === 'doc_default'">
+        <!-- 文档编辑区 (Markdown) -->
+        <div class="tab-pane" v-show="activeTab?.type === 'doc' && activeTab?.fileType === 'md'">
           <router-view />
         </div>
 
@@ -68,15 +71,7 @@
           </div>
         </div>
 
-        <!-- 工具挂载区 (常驻防卸载) -->
-        <div
-          v-for="tool in tabs.filter((t: any) => t.type === 'tool')"
-          :key="tool.id"
-          class="tab-pane"
-          v-show="activeTabId === tool.id"
-        >
-          <component :is="getToolComponent(tool.id)" />
-        </div>
+
       </div>
     </main>
 
@@ -88,7 +83,7 @@
           <span v-show="!isCopilotCollapsed">AI 助手</span>
         </div>
         <div class="header-actions" v-show="!isCopilotCollapsed">
-          <button class="icon-btn" @click="workspaceStore.createSession" title="开启新对话">
+          <button class="icon-btn" @click="createConsoleSession" title="开启新对话">
             <span class="mdi mdi-plus"></span>
           </button>
           <button class="icon-btn" @click="isCopilotCollapsed = !isCopilotCollapsed">
@@ -111,12 +106,11 @@
         >
           <span class="mdi mdi-chat-outline"></span>
           <span class="session-title">{{ session.title || '新对话' }}</span>
-          <span class="mdi mdi-close-circle close-session-icon" @click.stop="workspaceStore.deleteSession(session.id)"></span>
+          <span class="mdi mdi-close-circle close-session-icon" @click.stop="workspaceStore.hideSessionFromRecent(session.id)"></span>
         </div>
       </div>
 
       <div class="chat-container" v-show="!isCopilotCollapsed">
-        <ContextBar />
         <ChatMessages
           :messages="messages"
           :is-thinking="isThinking"
@@ -130,11 +124,85 @@
       </div>
     </aside>
 
+    <!-- 极简 Glass 保存文件选择器 -->
+    <div class="glass-dialog-overlay" v-if="saveState.visible" @click="saveState.visible = false">
+      <div class="glass-dialog" @click.stop>
+        <h4>保存并归档学术文档</h4>
+        
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label">保存格式</label>
+          <div class="format-options">
+            <div 
+              class="format-option-card" 
+              :class="{ active: saveState.fileFormat === 'md' }"
+              @click="saveState.fileFormat = 'md'"
+            >
+              <span class="mdi mdi-language-markdown format-icon text-warning"></span>
+              <span class="format-label-text">Markdown</span>
+            </div>
+            <div 
+              class="format-option-card" 
+              :class="{ active: saveState.fileFormat === 'docx' }"
+              @click="saveState.fileFormat = 'docx'"
+            >
+              <span class="mdi mdi-file-word format-icon text-primary"></span>
+              <span class="format-label-text">Word</span>
+            </div>
+            <div 
+              class="format-option-card" 
+              :class="{ active: saveState.fileFormat === 'xlsx' }"
+              @click="saveState.fileFormat = 'xlsx'"
+            >
+              <span class="mdi mdi-file-excel format-icon text-success"></span>
+              <span class="format-label-text">Excel</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label class="form-label">文件名</label>
+          <div class="input-with-suffix">
+            <input
+              v-model="saveState.fileName"
+              placeholder="输入文件名"
+              class="dialog-input"
+              style="margin-bottom: 0;"
+              @keydown.enter="submitSaveFile"
+            />
+            <span class="file-suffix">.{{ saveState.fileFormat }}</span>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label class="form-label">选择知识库 (项目)</label>
+          <select v-model="saveState.selectedProjectId" class="dialog-select">
+            <option v-for="proj in workspaceStore.projects" :key="proj.id" :value="proj.id">
+              {{ proj.name }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">选择文件夹 (选填)</label>
+          <select v-model="saveState.selectedFolderId" class="dialog-select">
+            <option value="">（保存在项目根目录下）</option>
+            <option v-for="folder in foldersForSelectedProject" :key="folder.id" :value="folder.id">
+              {{ folder.name }}
+            </option>
+          </select>
+        </div>
+
+        <div class="dialog-actions" style="margin-top: 1.5rem;">
+          <button class="dialog-btn cancel" @click="saveState.visible = false">取消</button>
+          <button class="dialog-btn confirm" @click="submitSaveFile" :disabled="!saveState.fileName.trim() || !saveState.selectedProjectId">确定</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, markRaw, watch } from 'vue'
+import { ref, computed, markRaw, watch, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useWorkspaceStore } from '../stores/workspace'
@@ -151,7 +219,7 @@ import type { Command } from '../types/index'
 
 const router = useRouter()
 const route = useRoute()
-const { tabs, activeTabId, activeTab, openToolTab } = useTabs()
+const { tabs, activeTabId, activeTab } = useTabs()
 
 const workspaceStore = useWorkspaceStore()
 const { messages, sessions, activeSessionId, allFiles } = storeToRefs(workspaceStore)
@@ -159,7 +227,13 @@ const { messages, sessions, activeSessionId, allFiles } = storeToRefs(workspaceS
 const isCopilotCollapsed = ref(false)
 const isThinking = ref(false)
 
-const recentSessions = computed(() => sessions.value.slice(0, 3))
+const recentSessions = computed(() => {
+  return sessions.value.filter(s => 
+    s.type === 'doc-edit' && 
+    s.fileId === activeTabId.value && 
+    !s.hiddenInRecent
+  ).slice(0, 3)
+})
 
 /** 当前 Tab 是否是 Word 文件 */
 const isOpenWordTab = computed(() =>
@@ -177,10 +251,112 @@ const isOpenExcelTab = computed(() =>
   activeTab.value.fileType === 'xlsx'
 )
 
-// 监听 URL 传递的 toolId
-watch(() => route.query.toolId, (newToolId) => {
-  if (newToolId) openToolTab(newToolId as string)
+// 监听 activeTabId 切换文档专属会话
+watch(activeTabId, (newTabId) => {
+  const tab = tabs.value.find(t => t.id === newTabId)
+  if (tab && tab.type === 'doc') {
+    workspaceStore.loadOrCreateDocSession(tab.id, tab.title)
+  }
 }, { immediate: true })
+
+const createConsoleSession = () => {
+  if (activeTab.value && activeTab.value.type === 'doc') {
+    workspaceStore.createSession('doc-edit', activeTab.value.id)
+  } else {
+    workspaceStore.createSession('qa')
+  }
+}
+
+// ---- 保存文件弹窗状态 ----
+const saveState = reactive({
+  visible: false,
+  fileName: '',
+  fileFormat: 'md' as 'md' | 'docx' | 'xlsx',
+  selectedProjectId: '',
+  selectedFolderId: ''
+})
+
+const foldersForSelectedProject = computed(() => {
+  const proj = workspaceStore.projects.find(p => p.id === saveState.selectedProjectId)
+  return proj ? proj.folders : []
+})
+
+const isTabUnsaved = computed(() => {
+  if (!activeTab.value || activeTab.value.type !== 'doc') return false
+  return !workspaceStore.allFiles.some(f => f.id === activeTabId.value)
+})
+
+const openSaveFileDialog = () => {
+  const tab = activeTab.value
+  let nameWithoutExt = tab ? tab.title : '未命名文档'
+  let currentFormat: 'md' | 'docx' | 'xlsx' = 'md'
+
+  if (nameWithoutExt.endsWith('.md')) {
+    nameWithoutExt = nameWithoutExt.slice(0, -3)
+    currentFormat = 'md'
+  } else if (nameWithoutExt.endsWith('.docx')) {
+    nameWithoutExt = nameWithoutExt.slice(0, -5)
+    currentFormat = 'docx'
+  } else if (nameWithoutExt.endsWith('.xlsx')) {
+    nameWithoutExt = nameWithoutExt.slice(0, -5)
+    currentFormat = 'xlsx'
+  }
+
+  saveState.fileName = nameWithoutExt
+  saveState.fileFormat = currentFormat
+
+  // 若当前 Tab 是新建的临时 Tab，联动回显其绑定的项目与文件夹
+  if (tab && tab.isTemp) {
+    saveState.selectedProjectId = tab.tempProjectId || workspaceStore.projects[0]?.id || ''
+    saveState.selectedFolderId = tab.tempFolderId || ''
+  } else {
+    saveState.selectedProjectId = workspaceStore.projects[0]?.id || ''
+    saveState.selectedFolderId = ''
+  }
+  
+  saveState.visible = true
+}
+
+/**
+ * @vibe-intent 校验与实现“先写后归档”物理写盘及多端联动，重塑 Tab 绑定并重绘会话
+ * @vibe-model Antigravity
+ * @vibe-ref intents.md#2026-05-28
+ */
+const submitSaveFile = () => {
+  const name = saveState.fileName.trim()
+  if (!name || !saveState.selectedProjectId) return
+
+  const format = saveState.fileFormat
+  const fullName = `${name}.${format}`
+
+  let newFile = null
+  if (saveState.selectedFolderId) {
+    newFile = workspaceStore.createFileInFolder(saveState.selectedProjectId, saveState.selectedFolderId, fullName)
+  } else {
+    newFile = workspaceStore.createFileInProject(saveState.selectedProjectId, fullName)
+  }
+
+  const tempTabId = activeTabId.value
+  const tabToUpdate = tabs.value.find(t => t.id === tempTabId)
+
+  if (newFile && tabToUpdate) {
+    // 1. 原地升级该临时 Tab 的专属会话，防止产生“未命名文档” and “新文件”两个历史会话残留
+    workspaceStore.upgradeDocSession(tempTabId, newFile.id, newFile.name)
+
+    // 2. 涂改原始页签数据
+    tabToUpdate.id = newFile.id
+    tabToUpdate.title = newFile.name
+    tabToUpdate.fileType = format
+    tabToUpdate.isTemp = false
+    delete tabToUpdate.tempProjectId
+    delete tabToUpdate.tempFolderId
+    
+    // 3. 更新当前页签 ID，触发 watch 自动切换专属 AI 问答，极其优雅
+    activeTabId.value = newFile.id
+  }
+
+  saveState.visible = false
+}
 
 const getToolComponent = (toolId: string) => {
   const tool = toolRegistry.find(t => t.id === toolId)
@@ -574,5 +750,203 @@ const handleSend = (message: string) => {
   flex-direction: column;
   overflow: hidden;
   position: relative;
+}
+/* Form groups for Save dialog */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: left;
+  
+  .form-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+}
+
+.dialog-select {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  outline: none;
+  cursor: pointer;
+  box-sizing: border-box;
+
+  &:focus {
+    border-color: var(--color-primary);
+  }
+}
+
+/* Glass dialog style details override */
+.glass-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.glass-dialog {
+  width: 320px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow-lg);
+  animation: scaleIn 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  h4 {
+    margin: 0 0 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+}
+
+.dialog-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  outline: none;
+  margin-bottom: 1.25rem;
+  box-sizing: border-box;
+  
+  &:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+  }
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.dialog-btn {
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+
+  &.cancel {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    &:hover { background-color: var(--bg-tertiary); color: var(--text-primary); }
+  }
+
+  &.confirm {
+    background-color: var(--color-primary);
+    color: white;
+    &:hover:not(:disabled) { background-color: var(--color-primary-hover); }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* --- 高阶“保存格式”选项组样式 --- */
+.format-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.format-option-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.6rem 0.25rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+
+  .format-icon {
+    font-size: 1.35rem;
+  }
+
+  .format-label-text {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  &:hover {
+    border-color: var(--color-primary);
+    background: var(--bg-secondary);
+    transform: translateY(-1px);
+    
+    .format-label-text {
+      color: var(--text-primary);
+    }
+  }
+
+  &.active {
+    background: rgba(59, 130, 246, 0.08);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+
+    .format-label-text {
+      color: var(--color-primary);
+      font-weight: 600;
+    }
+  }
+}
+
+/* 带后缀的输入框容器 */
+.input-with-suffix {
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: 100%;
+
+  .dialog-input {
+    flex: 1;
+    padding-right: 3.5rem; /* 给后缀留空间 */
+    margin-bottom: 0 !important;
+  }
+
+  .file-suffix {
+    position: absolute;
+    right: 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    pointer-events: none; /* 防止遮挡输入框点击 */
+  }
 }
 </style>

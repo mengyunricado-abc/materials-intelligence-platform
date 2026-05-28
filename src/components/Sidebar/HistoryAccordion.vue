@@ -26,14 +26,14 @@
             :key="session.id"
             class="session-item"
             :class="{ active: session.id === activeSessionId }"
-            @click="handleSelect(session.id)"
+            @click="handleSelect(session)"
           >
             <!-- @vibe-intent 零视觉噪音：彻底移除对话气泡图标与预览副文本，纯字排版对齐 -->
             <div class="session-title">{{ session.title || '新对话' }}</div>
             <button
               class="del-btn"
-              @click.stop="workspaceStore.deleteSession(session.id)"
-              title="删除"
+              @click.stop="workspaceStore.hideSessionFromRecent(session.id)"
+              title="隐藏"
             >
               <span class="mdi mdi-close"></span>
             </button>
@@ -67,15 +67,31 @@ const emit = defineEmits<{
  }>()
 
 const router = useRouter()
+import { useTabs } from '../../composables/useTabs'
+
+const { openFileTab } = useTabs()
 const workspaceStore = useWorkspaceStore()
 const { sessions, activeSessionId } = storeToRefs(workspaceStore)
 
 // @vibe-intent 固定展示前 5 项，其余项通过“查看全部”跳转管理，从而彻底不使用局部滚动条
-const displaySessions = computed(() => sessions.value.slice(0, 5))
+const displaySessions = computed(() => sessions.value.filter(s => !s.hiddenInRecent).slice(0, 5))
 
-const handleSelect = (id: string) => {
-  workspaceStore.switchSession(id)
-  emit('select', id)
+const handleSelect = (session: any) => {
+  workspaceStore.switchSession(session.id)
+  if (session.type === 'doc-edit' && session.fileId) {
+    const file = workspaceStore.allFiles.find(f => f.id === session.fileId)
+    if (file) {
+      openFileTab(file)
+    }
+    router.push('/console')
+  } else if (session.type === 'tool-edit' && session.fileId) {
+    router.push(`/tools/run?toolId=${session.fileId}`)
+  } else if (session.type === 'knowledge') {
+    router.push(`/knowledge?sessionId=${session.id}&openChat=true`)
+  } else {
+    router.push('/chat')
+  }
+  emit('select', session.id)
 }
 
 const goToHistory = () => {

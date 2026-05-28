@@ -51,9 +51,7 @@ const subscribedTools = computed(() => toolRegistry.filter(t => t.subscribed))
  * T7: 工具卡片点击改为在新标签页开启，将工具与知识库 Tab 体系物理隔离
  */
 const openToolNewTab = (toolId: string) => {
-  // TODO: 后续可按 toolId 拼接具体工具路由，如 `/console?tool=${toolId}`
-  const url = `/console?tool=${toolId}`
-  window.open(url, '_blank')
+  router.push(`/tools/run?toolId=${toolId}`)
 }
 
 const goToGallery = () => {

@@ -43,6 +43,10 @@ export interface Session {
   preview: string
   createdAt: Date
   messages?: Message[]
+  type?: 'academic' | 'knowledge' | 'doc-edit' | 'tool-edit'
+  fileId?: string
+  hiddenInRecent?: boolean
+  contextRefs?: ContextRef[]
 }
 
 export interface Message {
