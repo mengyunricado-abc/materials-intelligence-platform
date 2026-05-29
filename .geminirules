@@ -11,6 +11,7 @@
 # - Tool Loading: Multi-tasking tools must run in full-screen overlay over the Stage, with an explicit "Back to Document" save confirmation trigger.
 # - Session Environment Isolation: Every exploration session must maintain its own contextRefs snapshot to avoid global context pollution when switching sessions.
 # - Page and Panel Interactivity Linkage: When clicking historical sessions, automatically expand right AI panel, restore session state, and reverse-highlight associated tree nodes in sidebars.
+# - Forefront Radar & Self-Evolution: All user UI feedback collected via the floating FeedbackDrawer should be routed to local companion SQLite database (port 8090). Ensure code generation modifications pass visual regression tests before merging.
 
 # 3. Collaboration & Vibe Traceability Guidelines
 # - Every code modification or component creation MUST be tagged with `@vibe-intent`, `@vibe-model`, and `@vibe-ref` in comments directly above key blocks.

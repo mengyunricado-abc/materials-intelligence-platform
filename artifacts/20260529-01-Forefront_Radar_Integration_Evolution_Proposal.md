@@ -1,3 +1,167 @@
+# 项目进化对齐提案
+
+基于最近的协作与代码变更，我们识别出以下状态漂移，并规划了高价值的架构指南沉淀与元数据文件同步。
+
+## 1. 状态漂移分析与根因
+*   **前台雷达自进化反馈抽屉与伴生后台体系（漂移 A）**：
+    为了打通“用户直观指出 UI 元素不满意处 -> 影子沙箱大模型自动安全重构 -> 跑通视觉回归靶场后物理合入”的殿堂级自愈闭环，项目引入了 `FeedbackDrawer.vue`、伴生 FastAPI 后端、SQLite 本地数据库、影子沙箱视觉回归测试靶场以及 Docker 容器化隔离部署配置。这些改动极大地拓宽了系统自进化的边界，急需沉淀顶层架构指南并进行全局状态对齐。
+*   **侧边栏与控制台导航精简与高雅化（漂移 B）**：
+    根据科研工作站的玻尔科学极简美学要求，微调了侧边栏文字和结构。为了在元数据中保持一致性，需要在 Backlog 中结项相关 Sprint 任务，并在 Changelog 中予以详细记录。
+
+为了固化上述重大的顶层设计与架构演进，我们沉淀了一份高质感设计指南，并同步修改了 Changelog、Backlog 看板、.geminirules 全局宪法与 .vibe/intents.md 意图档案。
+
+---
+
+## 2. 拟议进化变更
+
+请审阅以下将被自动新建与对齐更新的文件内容：
+
+#### [新建] `guides/20260529-03-clzh_forefront_radar_and_self_evolution_architecture.md`
+```markdown
+# 前台雷达反馈与智能体自修复架构设计指南 (Forefront Radar and Self-Evolution Architecture Specification)
+
+本指南确立了材料智慧平台中“用户端前台反馈雷达（Feedback Drawer）”与“后台伴生大模型自愈系统（Self-Healing Agent）”的协同设计规范、全链路拓扑协议及影子沙箱安全热重载规范。
+
+## 1. 核心设计哲学
+在 AI 原生的软件生态中，系统不仅应该响应用户的操作，更应该具备“自我感知与持续进化（Self-Perception & Continuous Evolution）”的能力。
+- **直观改进入口**：用户在运行系统时，无需通过冗长的工单或外部聊天，可直接在当前界面上点选不满意或需要改进的 UI 元素，录入设计直觉。
+- **无感自愈与热重载**：后台智能体监听到反馈后，在完全隔离的影子沙箱内重构源码，通过视觉回归靶场防崩坏校验，物理合入最新代码并触发前端热更新（HMR），形成从反馈到合入的无感热自愈合环。
+- **安全第一与环境隔离**：所有的自修复与代码重构动作必须在 Docker 隔离环境及沙箱靶场内运行，杜绝外部不确定代码污染主机。
+
+## 2. 全链路拓扑与数据流 (Linkage Topology)
+
+```
+[User Interface] 
+       | (Inspect DOM element & enter design idea)
+       v
+1. Frontend FeedbackDrawer (Vue 3)
+       | (POST payload to localhost:8090/api/feedback)
+       v
+2. Local Companion Service (FastAPI + SQLite)
+       | (Write record to sqlite: feedback table as 'pending')
+       v
+3. Realtime Listener & Self-Healing Agent (Python)
+       v
+4. Target Code Parsing (Regex/AST parsing of target component)
+       v
+5. Sandbox Re-Generation (LLM refactors component with @vibe tags)
+       v
+6. Visual Regression Testing (Playwright regression: ui_before vs ui_after)
+       v
+7. Hot Module Replacement (Git auto-push & dynamic front HMR re-load)
+```
+
+### 2.1 前端审查捕获层 (FeedbackDrawer.vue)
+- 提供全局悬浮微交互按钮，包含 `@click="toggleInspectMode"`。
+- **审查模式（Inspect Mode）**：激活后阻止全局默认点击事件。通过 `mouseover` 与 `mouseout` 动态为目标 HTML 元素追加 `inspect-highlight` 虚线轮廓。
+- **唯一 CSS 选择器生成**：在选定 DOM 元素时，递归向上回溯直到 `documentElement` 或带有 `id` 属性的父元素。组合各级 `tagName`、`className`（排除临时交互类）与 `:nth-of-type`，计算出唯一 CSS 选择器（`targetSelector`）以锁定待改造元素。
+- **反馈投递**：将 `targetSelector` 与用户的自然语言重构建议组装成 payload，投递给本地 8090 端口的伴生 API。
+
+### 2.2 本地伴生与持久化层 (backend/)
+- **数据表设计**：使用 SQLite 数据库，建立 `feedback` 实体表。
+  - `id`: INTEGER PRIMARY KEY AUTOINCREMENT
+  - `category`: TEXT (如 `ui_style`)
+  - `content`: TEXT (内嵌捕获的选择器与用户描述)
+  - `status`: TEXT (包括 `pending | in_progress | resolved | failed`)
+  - `created_at`: TIMESTAMP
+- **API 服务**：FastAPI 提供 POST 端点接收反馈，以及 GET 端点供后台 Agent 轮询或长连接拉取任务。
+
+### 2.3 自愈执行器与视觉回归验证层 (tests/)
+- **实时拉取与代码定位**：监听器监听到 `pending` 反馈，解析出 `targetSelector` 及改进描述。根据选择器反向解析并定位对应的 Vue 源文件（如通过 AST 树或规则字典映射到具体的组件文件）。
+- **影子沙箱重构**：大模型读取对应组件的源码，在保留所有已有业务逻辑的前提下，精准重构相关样式或 HTML 布局。大模型必须在重构的逻辑上方注入标准的 `@vibe-intent` 意图注释块。
+- **视觉回归靶场（Visual Regression Test）**：
+  - 代码在沙箱中重写后，启动伴生的 Playwright 视觉测试脚本 `tests/test_visual_regression.py`。
+  - 在无头浏览器中渲染该界面并截取 `tests/screenshots/ui_after.png`，与此前的 `ui_before.png` 执行像素灰度差异对比。
+  - **合入拦截**：若像素偏差超出安全阈值或产生空白屏，则立即抛出异常并触发自动代码修正（Self-Correction）或退回并标记 `feedback` 状态为 `failed`。若测试完美通过（差异率在合理范围内），则将状态更新为 `resolved`。
+  - **物理合入**：物理覆写源文件，触发前端 Vite 编译器的热重载 HMR，并在后台执行语义化 Git 自动提交。
+
+## 3. 安全沙箱与高隔离部署 (Docker Isolation)
+- **物理隔离**：主机的前端 Node 服务与自修复 FastAPI 后端容器化独立部署。
+- **Docker Compose 配置**：
+  - 伴生后端容器挂载 SQLite 数据卷，暴露 8090 端口，且与核心业务代码宿主机以只读/受控写模式挂载。
+  - 前端开发服务器通过 Vite 代理或 CORS 与伴生后端安全互通。
+- **环境保活**：Docker 伴生服务中的守护进程 `host_supervisor.py` 会保证 SQLite 数据库与轮询 Agent 在各种报错下能自我重启，并实时输出 Log 到工作空间，方便开发者审计。
+```
+
+#### [修改] `Changelog.md`
+```markdown
+# 变更日志 (Changelog)
+
+所有关于材料智慧平台 (clzh) 的版本演进和关键修改都将在此记录。
+
+## [v0.6.0] - 2026-05-29
+### 🚀 Added
+- **前台雷达自进化反馈抽屉**：开发了浮动式 `FeedbackDrawer` 交互反馈组件，支持“页面审查点选”高亮定位并捕获任意 UI 元素的 CSS 唯一选择器，以极简交互流将用户改进意图一键提交。
+- **本地伴生自修复后端服务**：集成 FastAPI 后端（端口 8090）与 SQLite 伴生数据库，可实时持久化反馈记录，并提供反馈流拉取及自动触发 Agent 大脑自愈接口。
+- **视觉回归靶场与影子沙箱**：基于 Playwright 开发了 `test_visual_regression.py` 回归脚本，在影子沙箱重写代码后自动生成并对比 `ui_before.png` 与 `ui_after.png` 保证像素级布局无损。
+- **Docker 容器化伴生部署**：编写了 `Dockerfile` 及 `docker-compose.yml`，将自进化伴生服务及其 SQLite 数据库一键封装隔离运行，保障了主机环境的安全与稳定性。
+- **侧边栏与控制台导航精简**：微调了 `ConsoleLayout.vue` 与 `FileList.vue` 等侧边栏文字，使其对标 Bohrium 科学美学更简练明晰。
+
+## [v0.5.0] - 2026-05-28
+### 🚀 Added
+- **会话专属文献快照隔离机制**：在 Session 接口及 Pinia store 中全面织入了文献/项目上下文引用的备份与双向还原快照，彻底消灭了会话间的挂载污染漏洞。
+- **大屏路由劫持与秒级高亮联动**：开发了 handleHistoryQueryRoute 拦截器，从全部历史或侧栏历史点击时自动拉开 AI 知识库面板、激活特定会话，并反向在左侧树结构中层级高亮定位项目/文件夹节点。
+- **科研定制学术标题智能生成**：在 addMessage 提问流中融入智能起标题机制，首问有文献挂载时自动重命名标题为高雅的：《关于 [文献文件名] 的文献精读》。
+- **空白文档先写后归档交互闭环**：在保存时改用 Pinia 内聚 action `upgradeDocSession` 原地升级会话 ID 并强制重新赋值，100% 达成深度响应式与 localStorage 硬盘持久化同步，彻底根治新建文档双专属会话的缓存残留 Bug。
+- **常用工具大屏运行隔离**：工具项点击跳转至常用科学工具大屏运行专属路由 `/tools/run?toolId=...`，确保了与控制台文档编辑的物理隔离。
+
+## [v0.1.0-alpha] - 2026-05-23
+### 🚀 Added
+- 首次引入项目自进化对齐机制 (`a-project-evolution`)，完成基础元数据构建。
+- 物理沉淀了系统核心交互与布局设计指南：[guides/20260523-01-clzh_platform_layout_and_interaction_spec.md](file:///d:/2026/03project/materials-intelligence-platform/guides/20260523-01-clzh_platform_layout_and_interaction_spec.md)。
+- 首次确立了 AI 开发者规范 [.geminirules](file:///d:/2026/03project/materials-intelligence-platform/.geminirules)。
+- 建立了产品研发看板 [Backlog.md](file:///d:/2026/03project/materials-intelligence-platform/Backlog.md)。
+- 初始化了核心前端布局，包括门户页模式切换及控制台三栏布局骨架（Portal.vue, Console.vue）。
+```
+
+#### [修改] `Backlog.md`
+```markdown
+# clzh 材料智慧平台 - 研发需求积压 (Backlog)
+
+本看板追踪材料智慧平台 (clzh) 的功能演进与排期计划。
+
+## 🏃 Active Sprint (Sprint 1 - 架构搭建与状态对齐)
+- [x] 搭建基础门户页 (Portal.vue) 模式分流器
+- [x] 搭建控制台 (Console.vue) 左右三栏弹性自适应布局
+- [x] 基于 Pinia 状态管理设计文档状态机与 Diff 审批态
+- [x] 沉淀系统自进化元数据规范文件 (.geminirules, Backlog, Changelog, guides)
+
+## 📅 Upcoming Sprint (Sprint 2 - 核心功能补强与体验治理)
+- [x] 实现左侧导航栏文件树（FileList）及 Checkbox 挂载文献的上下文注意力胶囊关联机制
+- [x] 空白文档免弹窗“先写后归档”保存流在编辑区的完美高阶交互闭环
+- [x] 研发常用科学小程序（ToolsRun.vue）在独立页面保活运行与返回流的完全物理隔离
+- [x] 会话专属文献快照隔离（contextRefs 备份与无污染还原）及大屏路由 handleHistoryQueryRoute 联动
+- [x] 接入前台雷达自进化体系，新增反馈抽屉、伴生 API、SQLite 自动落库与影子沙箱自修复机制
+- [ ] 将控制台中间文本区重构为真实 Monaco Editor 并整合 Monaco Diff Editor 比对模式
+- [ ] 研发右侧 AI 输入框 `@` 引用文件与 `/` 指令 of Autocomplete 弹出菜单组件
+- [ ] 对接后端真实大模型 API 并实现流式输出 (Server-Sent Events) 与实时日志流 (Log Streaming)
+```
+
+#### [修改] `.geminirules`
+```python
+# Materials Intelligence Platform - AI Developer Constitution (.geminirules)
+
+# 1. Core Technology Stack
+# - Frontend: Vue 3 + Vite + TypeScript + Pinia
+# - CSS/Styling: Vanilla CSS & SCSS (TailwindCSS should be avoided unless explicitly requested)
+# - Framework Paradigm: Single Page Application (SPA)
+
+# 2. Key Architecture Standards
+# - Console Layout: Always strictly maintain the 3-column layout (Sidebar, Stage, Copilot).
+# - Document Modification: Always implement the "Diff View (Split Editor)" flow with explicit [Accept/Reject] approval. Direct overwrite without preview is prohibited.
+# - Tool Loading: Multi-tasking tools must run in full-screen overlay over the Stage, with an explicit "Back to Document" save confirmation trigger.
+# - Session Environment Isolation: Every exploration session must maintain its own contextRefs snapshot to avoid global context pollution when switching sessions.
+# - Page and Panel Interactivity Linkage: When clicking historical sessions, automatically expand right AI panel, restore session state, and reverse-highlight associated tree nodes in sidebars.
+# - Forefront Radar & Self-Evolution: All user UI feedback collected via the floating FeedbackDrawer should be routed to local companion SQLite database (port 8090). Ensure code generation modifications pass visual regression tests before merging.
+
+# 3. Collaboration & Vibe Traceability Guidelines
+# - Every code modification or component creation MUST be tagged with `@vibe-intent`, `@vibe-model`, and `@vibe-ref` in comments directly above key blocks.
+# - Post-modification actions: Immediately update `./.vibe/intents.md` silently to document the technical decisions. Avoid git commit until explicit `/done` is triggered.
+# - Language Rule: Always communicate, document, and write comments in Chinese (except file structures or codebase identifiers).
+```
+
+#### [修改] `.vibe/intents.md`
+```markdown
 ### [2026-04-15] - 从零构建基于 Vue3 的材料智慧平台原型
 - **驱动模型**: Gemini 3.1 Pro (High)
 - **涉及文件**: `src/layouts/ConsoleLayout.vue`, `src/pages/Portal.vue`, `src/components/Editor/CodeEditor.vue`
@@ -185,3 +349,4 @@
   3. **实时拉取与自愈 Agent**：在 `skills/a_fix_feedback/scripts/` 下编写了 feedback 自动拉取器与监听器，轮询 SQLite 数据库。监听到 pending 状态 of 自进化反馈时，大模型将自动读取对应的组件源码，定位 targetSelector 相关的 CSS/HTML 并精准重写。
   4. **回归测试与影子沙箱**：基于 Playwright 开发了 `test_visual_regression.py` 视觉回归测试靶场。在代码重构后自动对比重构前后的 `ui_before.png` 与 `ui_after.png`，在确认像素零偏离、布局无损的前提下物理合入，并由 HMR 驱动用户界面无感热重载，保障系统运行与展示的绝对稳定。
   5. **Docker 一键隔离部署**：编写 `Dockerfile` 与 `docker-compose.yml` 隔离运行伴生 SQLite 与 FastAPI 服务，避免外部大模型自愈时污染主机核心进程。
+```

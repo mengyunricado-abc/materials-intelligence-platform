@@ -13,6 +13,7 @@
 - [x] 空白文档免弹窗“先写后归档”保存流在编辑区的完美高阶交互闭环
 - [x] 研发常用科学小程序（ToolsRun.vue）在独立页面保活运行与返回流的完全物理隔离
 - [x] 会话专属文献快照隔离（contextRefs 备份与无污染还原）及大屏路由 handleHistoryQueryRoute 联动
+- [x] 接入前台雷达自进化体系，新增反馈抽屉、伴生 API、SQLite 自动落库与影子沙箱自修复机制
 - [ ] 将控制台中间文本区重构为真实 Monaco Editor 并整合 Monaco Diff Editor 比对模式
-- [ ] 研发右侧 AI 输入框 `@` 引用文件与 `/` 指令的 Autocomplete 弹出菜单组件
+- [ ] 研发右侧 AI 输入框 `@` 引用文件与 `/` 指令 of Autocomplete 弹出菜单组件
 - [ ] 对接后端真实大模型 API 并实现流式输出 (Server-Sent Events) 与实时日志流 (Log Streaming)
