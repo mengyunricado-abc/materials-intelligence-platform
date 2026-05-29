@@ -28,7 +28,7 @@
           title="开启新科学对话"
         >
           <span class="mdi mdi-plus-circle-outline nav-icon"></span>
-          <span class="nav-label" v-show="!isSidebarCollapsed">新建对话</span>
+          <span class="nav-label" v-show="!isSidebarCollapsed">AI对话</span>
         </div>
 
         <!-- 科研知识库 (左右分布大屏) -->

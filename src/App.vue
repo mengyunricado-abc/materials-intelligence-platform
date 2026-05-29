@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
+import FeedbackDrawer from './components/FeedbackDrawer.vue'
 
 onMounted(() => {
   // Check user preference for theme
@@ -12,4 +13,5 @@ onMounted(() => {
 
 <template>
   <router-view></router-view>
+  <FeedbackDrawer />
 </template>
